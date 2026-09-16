@@ -4,13 +4,17 @@ import { useState } from "react";
 import {
   Activity, AlertTriangle, ArrowRight, Bell, BookOpen, CalendarDays, Check, ChevronDown,
   ClipboardList, FileText, HeartPulse, LayoutDashboard, Menu, Pill, Plus, Search, Settings,
-  ShieldCheck, Stethoscope, UserRound, UsersRound, X
+  ShieldCheck, Stethoscope, UsersRound
 } from "lucide-react";
 
 const nav = [
-  [LayoutDashboard, "Beranda"], [UsersRound, "Pasien"], [FileText, "Rekam Medis"],
-  [Pill, "Resep"], [Stethoscope, "Clinical Assistant"], [Activity, "Tools"],
-  [BookOpen, "Template"],
+  { icon: LayoutDashboard, label: "Beranda" },
+  { icon: UsersRound, label: "Pasien" },
+  { icon: FileText, label: "Rekam Medis" },
+  { icon: Pill, label: "Resep" },
+  { icon: Stethoscope, label: "Clinical Assistant" },
+  { icon: Activity, label: "Tools" },
+  { icon: BookOpen, label: "Template" },
 ];
 
 const steps = ["Keluhan", "Anamnesis", "Pemeriksaan", "Analisis", "Rencana"];
@@ -27,7 +31,7 @@ export default function Home() {
       <aside className="sidebar">
         <div className="brand"><div className="brand-mark">D</div><div><strong>Dokter Jaga</strong><span>Clinical Intelligence</span></div></div>
         <div className="doctor-mini"><div className="avatar">DP</div><div><b>dr. Dwi Pratama</b><small>Dokter Umum</small></div><ChevronDown size={14}/></div>
-        <nav>{nav.map(([Icon, label]) => <button key={label} className={activeNav === label ? "nav-item active" : "nav-item"} onClick={() => setActiveNav(label as string)}><Icon size={17}/><span>{label}</span>{label === "Clinical Assistant" && <i>AI</i>}</button>)}</nav>
+        <nav>{nav.map(({ icon: Icon, label }) => <button key={label} className={activeNav === label ? "nav-item active" : "nav-item"} onClick={() => setActiveNav(label)}><Icon size={17}/><span>{label}</span>{label === "Clinical Assistant" && <i>AI</i>}</button>)}</nav>
         <div className="sidebar-bottom"><button className="nav-item"><CalendarDays size={17}/>Jadwal</button><button className="nav-item"><ClipboardList size={17}/>Laporan</button><button className="nav-item"><Settings size={17}/>Pengaturan</button></div>
       </aside>
 
@@ -38,7 +42,7 @@ export default function Home() {
           <div className="top-actions"><button className="icon-btn"><Bell size={18}/><em/></button><div className="top-doctor"><div className="avatar small">DP</div><span>dr. Dwi</span></div></div>
         </header>
 
-        <div className="page-head"><div><p className="eyebrow">CLINICAL WORKSPACE</p><h1>Selamat pagi, Dokter.</h1><p className="muted">Apa yang ingin Anda lakukan hari ini?</p></div><div className="date-pill"><CalendarDays size={16}/> Selasa, 16 September 2026</div></div>
+        <div className="page-head"><div><p className="eyebrow">CLINICAL WORKSPACE</p><h1>Selamat pagi, Dokter.</h1><p className="muted">Apa yang ingin Anda lakukan hari ini?</p></div><div className="date-pill"><CalendarDays size={16}/> Rabu, 16 September 2026</div></div>
 
         <section className="quick-grid">
           <button className="quick-card"><div className="quick-icon blue"><Plus/></div><div><b>Pasien Baru</b><span>Buat rekam medis</span></div></button>
@@ -50,7 +54,7 @@ export default function Home() {
         <div className="workspace-grid">
           <section className="panel patient-panel">
             <div className="panel-head"><div><h2>Pasien Hari Ini</h2><p>4 encounter terjadwal</p></div><button className="text-btn">Lihat Semua →</button></div>
-            {[['Budi Santoso','Demam, nyeri kepala','09:00','R.1'],['Siti Rahma','Kontrol Hipertensi','09:30','R.2'],['Andi Wijaya','Batuk, sesak','10:00','R.3'],['Dewi Lestari','Nyeri perut','10:30','R.4']].map((p,i)=><div className="patient-row" key={p[0]}><div className="patient-avatar">{p[0].split(' ').map(x=>x[0]).join('')}</div><div className="patient-info"><b>{p[0]}</b><span>{p[1]}</span></div><span className="patient-time">{p[2]}<small>{p[3]}</small></span></div>)}
+            {[['Budi Santoso','Demam, nyeri kepala','09:00','R.1'],['Siti Rahma','Kontrol Hipertensi','09:30','R.2'],['Andi Wijaya','Batuk, sesak','10:00','R.3'],['Dewi Lestari','Nyeri perut','10:30','R.4']].map(p=><div className="patient-row" key={p[0]}><div className="patient-avatar">{p[0].split(' ').map(x=>x[0]).join('')}</div><div className="patient-info"><b>{p[0]}</b><span>{p[1]}</span></div><span className="patient-time">{p[2]}<small>{p[3]}</small></span></div>)}
           </section>
 
           <section className="panel stats-panel"><div className="panel-head"><div><h2>Ringkasan Bulan Ini</h2><p>Aktivitas klinis</p></div></div><div className="stat-grid"><div><b>124</b><span>Total Pasien</span></div><div><b>8</b><span>Pasien Baru</span></div><div><b>62</b><span>Resep Dibuat</span></div><div><b>12</b><span>Surat Rujukan</span></div></div><div className="trust-note"><ShieldCheck size={17}/><span>Dokter tetap memegang keputusan klinis.</span></div></section>
@@ -70,7 +74,7 @@ export default function Home() {
               <div className="section-title dx-title"><div><p className="eyebrow">STEP 02 · CLINICAL REASONING</p><h3>Diagnosis Banding</h3></div><button className="text-btn">Lihat Guideline →</button></div>
               {[['Dengue Fever','Paling relevan',['Demam akut','Sakit kepala','Nyeri badan']],['Viral Infection','Masih mungkin',['Demam akut','Nyeri badan']],['Typhoid Fever','Pertimbangkan',['Demam > 3 hari','Riwayat makanan']]].map((d,i)=><button key={d[0]} className={selectedDx===d[0]?"dx-card selected":"dx-card"} onClick={()=>setSelectedDx(d[0])}><span className="rank">{i+1}</span><div><div className="dx-name"><b>{d[0]}</b><span>{d[1]}</span></div><p>Alasan dipertimbangkan</p><div className="tags">{d[2].map(t=><span key={t}>{t}</span>)}</div></div><ArrowRight size={16}/></button>)}
             </div>
-            <aside className="analysis-side"><div className="side-card"><p className="eyebrow">DIAGNOSIS KERJA</p><h3>{selectedDx}</h3><p>Dipilih oleh dokter berdasarkan data klinis yang tersedia.</p><label>Diagnosis kerja<select defaultValue={selectedDx} onChange={e=>setSelectedDx(e.target.value)}><option>Dengue Fever</option><option>Viral Infection</option><option>Typhoid Fever</option></select></label><button className="primary wide" onClick={()=>setActiveStep(2)}>Lanjut ke Pemeriksaan <ArrowRight size={16}/></button></div><div className="safety-card"><AlertTriangle size={17}/><div><b>Safety check</b><p>Pastikan tanda vital dan red flags dinilai sebelum keputusan tatalaksana.</p></div></div></aside>
+            <aside className="analysis-side"><div className="side-card"><p className="eyebrow">DIAGNOSIS KERJA</p><h3>{selectedDx}</h3><p>Dipilih oleh dokter berdasarkan data klinis yang tersedia.</p><label>Diagnosis kerja<select value={selectedDx} onChange={e=>setSelectedDx(e.target.value)}><option>Dengue Fever</option><option>Viral Infection</option><option>Typhoid Fever</option></select></label><button className="primary wide" onClick={()=>setActiveStep(2)}>Lanjut ke Pemeriksaan <ArrowRight size={16}/></button></div><div className="safety-card"><AlertTriangle size={17}/><div><b>Safety check</b><p>Pastikan tanda vital dan red flags dinilai sebelum keputusan tatalaksana.</p></div></div></aside>
           </div>
         </section>
 
