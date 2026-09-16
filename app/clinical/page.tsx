@@ -1,48 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ArrowRight,
-  Check,
-  FileText,
-  HeartPulse,
-  Info,
-  Loader2,
-  Save,
-  Search,
-  ShieldCheck,
-  Stethoscope,
-  Trash2,
-  UserRound,
-} from "lucide-react";
-import {
-  listClinicalEncounters,
-  loadClinicalEncounter,
-  saveClinicalEncounter,
-  deleteClinicalEncounter,
-  type ClinicalEncounter,
-} from "../../lib/clinical-storage";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, FileText, HeartPulse, Info, Loader2, Save, Search, ShieldCheck, Stethoscope, Trash2 } from "lucide-react";
+import { listClinicalEncounters, loadClinicalEncounter, saveClinicalEncounter, deleteClinicalEncounter, type ClinicalEncounter } from "../../lib/clinical-storage";
 import { runClinicalEngine, type ClinicalEngineResult, type QuestionAnswer, type Vitals } from "../../lib/clinical-engine";
 
+type Patient = { name: string; medicalRecordNumber: string; birthDate: string; sex: "Laki-laki" | "Perempuan" | "" };
+type Snapshot = { complaint: string; vitals: Vitals; answers: Record<string, QuestionAnswer> };
+
+const emptyPatient: Patient = { name: "", medicalRecordNumber: "", birthDate: "", sex: "" };
 const emptyVitals: Vitals = { bp: "", hr: "", rr: "", temp: "", spo2: "" };
 const steps = ["Pasien", "Keluhan", "Anamnesis", "Pemeriksaan", "Analisis", "Rencana"];
 
-type Snapshot = { complaint: string; vitals: Vitals; answers: Record<string, QuestionAnswer> };
-
-type PatientDraft = {
-  name: string;
-  medicalRecordNumber: string;
-  birthDate: string;
-  sex: "Laki-laki" | "Perempuan" | "";
-};
-
-const emptyPatient: PatientDraft = { name: "", medicalRecordNumber: "", birthDate: "", sex: "" };
-
 export default function ClinicalWorkspace() {
   const [step, setStep] = useState(0);
-  const [patient, setPatient] = useState<PatientDraft>(emptyPatient);
+  const [patient, setPatient] = useState<Patient>(emptyPatient);
   const [complaint, setComplaint] = useState("");
   const [vitals, setVitals] = useState<Vitals>({ ...emptyVitals });
   const [answers, setAnswers] = useState<Record<string, QuestionAnswer>>({});
@@ -50,79 +22,39 @@ export default function ClinicalWorkspace() {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [selectedDx, setSelectedDx] = useState("");
   const [encounterId, setEncounterId] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState("");
   const [savedCases, setSavedCases] = useState<ClinicalEncounter[]>([]);
+  const [savedAt, setSavedAt] = useState("");
   const [notice, setNotice] = useState("");
+  const [showCases, setShowCases] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showSaved, setShowSaved] = useState(false);
 
-  useEffect(() => {
-    setSavedCases(listClinicalEncounters());
-  }, []);
+  useEffect(() => { setSavedCases(listClinicalEncounters()); }, []);
 
   const preview = useMemo(() => runClinicalEngine({ complaint, vitals, questionAnswers: answers }), [complaint, vitals, answers]);
-  const analysisStale = useMemo(() => {
-    if (!analysis || !snapshot) return false;
-    return JSON.stringify({ complaint: complaint.trim(), vitals, answers }) !== JSON.stringify(snapshot);
-  }, [analysis, snapshot, complaint, vitals, answers]);
+  const stale = Boolean(analysis && snapshot && JSON.stringify({ complaint: complaint.trim(), vitals, answers }) !== JSON.stringify(snapshot));
   const selected = analysis?.differentials.find((d) => d.name === selectedDx) ?? analysis?.differentials[0];
   const patientReady = Boolean(patient.name.trim() || patient.medicalRecordNumber.trim());
 
-  function updatePatient(key: keyof PatientDraft, value: string) {
-    setPatient((p) => ({ ...p, [key]: value } as PatientDraft));
-    setSavedAt("");
-  }
-
-  function runAnalysis() {
-    if (!patientReady) {
-      setNotice("Isi nama pasien atau nomor rekam medis terlebih dahulu.");
-      setStep(0);
-      return;
-    }
-    if (!complaint.trim()) {
-      setNotice("Keluhan pasien belum diisi.");
-      setStep(1);
-      return;
-    }
-
-    const nextSnapshot: Snapshot = {
-      complaint: complaint.trim(),
-      vitals: { ...vitals },
-      answers: { ...answers },
-    };
-    const result = runClinicalEngine(nextSnapshot);
-    setSnapshot(nextSnapshot);
+  const runAnalysis = () => {
+    if (!patientReady) { setNotice("Isi nama pasien atau nomor rekam medis terlebih dahulu."); setStep(0); return; }
+    if (!complaint.trim()) { setNotice("Keluhan pasien belum diisi."); setStep(1); return; }
+    const next: Snapshot = { complaint: complaint.trim(), vitals: { ...vitals }, answers: { ...answers } };
+    const result = runClinicalEngine(next);
+    setSnapshot(next);
     setAnalysis(result);
     setSelectedDx(result.differentials[0]?.name ?? "");
     setSavedAt("");
     setStep(4);
-    setNotice(`Analisis selesai: ${result.differentials.length} pertimbangan klinis ditemukan.`);
-  }
+    setNotice(`Analisis selesai: ${result.differentials.length} pertimbangan klinis.`);
+  };
 
-  function saveCase() {
-    if (!patientReady) {
-      setNotice("Isi nama pasien atau nomor rekam medis sebelum menyimpan.");
-      setStep(0);
-      return;
-    }
-    if (!complaint.trim()) {
-      setNotice("Keluhan pasien belum diisi.");
-      setStep(1);
-      return;
-    }
-
+  const saveCase = () => {
+    if (!patientReady) { setNotice("Isi nama pasien atau nomor rekam medis sebelum menyimpan."); setStep(0); return; }
+    if (!complaint.trim()) { setNotice("Keluhan pasien belum diisi."); setStep(1); return; }
     setSaving(true);
     const result = saveClinicalEncounter({
       patientId: encounterId ? savedCases.find((x) => x.id === encounterId)?.patientId : undefined,
-      patient: {
-        id: "",
-        name: patient.name.trim(),
-        medicalRecordNumber: patient.medicalRecordNumber.trim(),
-        birthDate: patient.birthDate,
-        sex: patient.sex,
-        createdAt: "",
-        updatedAt: "",
-      },
+      patient: { id: "", name: patient.name.trim(), medicalRecordNumber: patient.medicalRecordNumber.trim(), birthDate: patient.birthDate, sex: patient.sex, createdAt: "", updatedAt: "" },
       complaint: complaint.trim(),
       vitals: { ...vitals },
       answers: { ...answers },
@@ -130,25 +62,19 @@ export default function ClinicalWorkspace() {
       analysisSnapshot: snapshot,
       reviewed: true,
     });
-
     setEncounterId(result.id);
     setSavedAt(result.updatedAt);
     setSavedCases(listClinicalEncounters());
     setSaving(false);
-    setNotice("Encounter tersimpan. Data dapat dibuka kembali dari daftar kasus.");
-    setShowSaved(true);
-  }
+    setNotice("Encounter berhasil disimpan di browser ini.");
+    setShowCases(true);
+  };
 
-  function loadCase(id: string) {
+  const loadCase = (id: string) => {
     const result = loadClinicalEncounter(id);
     if (!result) return;
     setEncounterId(result.id);
-    setPatient({
-      name: result.patient.name,
-      medicalRecordNumber: result.patient.medicalRecordNumber,
-      birthDate: result.patient.birthDate,
-      sex: result.patient.sex,
-    });
+    setPatient({ name: result.patient.name, medicalRecordNumber: result.patient.medicalRecordNumber, birthDate: result.patient.birthDate, sex: result.patient.sex });
     setComplaint(result.complaint);
     setVitals(result.vitals);
     setAnswers(result.answers);
@@ -157,157 +83,103 @@ export default function ClinicalWorkspace() {
     setAnalysis(result.analysisSnapshot ? runClinicalEngine(result.analysisSnapshot) : null);
     setSavedAt(result.updatedAt);
     setStep(result.analysisSnapshot ? 4 : 1);
-    setShowSaved(false);
+    setShowCases(false);
     setNotice(`Encounter ${result.patient.name || result.patient.medicalRecordNumber} dimuat.`);
-  }
+  };
 
-  function newCase() {
-    setStep(0);
-    setPatient({ ...emptyPatient });
-    setComplaint("");
-    setVitals({ ...emptyVitals });
-    setAnswers({});
-    setAnalysis(null);
-    setSnapshot(null);
-    setSelectedDx("");
-    setEncounterId(null);
-    setSavedAt("");
-    setNotice("Kasus baru siap diisi.");
-  }
+  const newCase = () => {
+    setStep(0); setPatient({ ...emptyPatient }); setComplaint(""); setVitals({ ...emptyVitals }); setAnswers({}); setAnalysis(null); setSnapshot(null); setSelectedDx(""); setEncounterId(null); setSavedAt(""); setNotice("Kasus baru siap diisi.");
+  };
 
-  function removeCase(id: string) {
+  const removeCase = (id: string) => {
     deleteClinicalEncounter(id);
-    const next = listClinicalEncounters();
-    setSavedCases(next);
-    if (encounterId === id) newCase();
-    setNotice("Encounter dihapus dari penyimpanan browser.");
-  }
+    setSavedCases(listClinicalEncounters());
+    if (id === encounterId) newCase();
+    setNotice("Encounter dihapus.");
+  };
 
-  function answerQuestion(id: string, answer: QuestionAnswer) {
-    setAnswers((prev) => ({ ...prev, [id]: answer }));
-    setSavedAt("");
-  }
+  return <main style={styles.page}>
+    <header style={styles.header}>
+      <a href="/" style={styles.back}><ArrowLeft size={15}/> Dashboard</a>
+      <div style={styles.brand}><div style={styles.logo}><HeartPulse size={18}/></div><div><b style={styles.brandTitle}>Dokter Jaga</b><span style={styles.brandSub}>Clinical Assistant</span></div></div>
+      <span style={{ marginLeft: "auto", fontSize: 9, color: savedAt ? "#16816c" : "#78859a" }}>{savedAt ? "● Encounter tersimpan" : "● Draft"}</span>
+    </header>
 
-  return (
-    <main style={{ minHeight: "100vh", background: "#f5f8fc", color: "#16213d", fontFamily: "Inter, Arial, sans-serif" }}>
-      <header style={{ height: 66, background: "#fff", borderBottom: "1px solid #e5eaf2", display: "flex", alignItems: "center", padding: "0 28px", gap: 16 }}>
-        <a href="/" style={{ display: "flex", alignItems: "center", gap: 7, color: "#5c6a83", textDecoration: "none", fontSize: 11 }}><ArrowLeft size={15} /> Dashboard</a>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 11, background: "#e9f3ff", color: "#2563eb", display: "grid", placeItems: "center" }}><HeartPulse size={18} /></div>
-          <div><b style={{ display: "block", fontSize: 14, color: "#10295b" }}>Dokter Jaga</b><span style={{ fontSize: 9, color: "#8793a7" }}>Clinical Assistant · Encounter</span></div>
+    <div style={styles.container}>
+      <div style={styles.titleRow}><div><div style={styles.eyebrow}>CLINICAL WORKSPACE</div><h1 style={styles.h1}>Clinical Encounter</h1><p style={styles.muted}>Data pasien → keluhan → anamnesis → pemeriksaan → analisis → rencana.</p></div><button type="button" onClick={() => setShowCases((v) => !v)} style={styles.secondary}><Search size={13}/> {savedCases.length} kasus tersimpan</button></div>
+
+      {notice && <div style={styles.notice}><Info size={14}/><span style={{ flex: 1 }}>{notice}</span><button type="button" onClick={() => setNotice("")} style={styles.linkButton}>Tutup</button></div>}
+
+      {showCases && <section style={styles.card}><div style={styles.cardHead}><div><div style={styles.eyebrow}>STORED ENCOUNTERS</div><h2 style={styles.h2}>Kasus tersimpan</h2></div><button type="button" onClick={() => setShowCases(false)} style={styles.linkButton}>Tutup</button></div>{savedCases.length === 0 ? <div style={styles.empty}>Belum ada kasus. Klik Simpan Encounter setelah mengisi data.</div> : savedCases.map((x) => <div key={x.id} style={styles.savedRow}><div style={styles.avatar}>{(x.patient.name || "PS").slice(0,2).toUpperCase()}</div><div style={{ flex: 1 }}><b style={{ display: "block", fontSize: 10 }}>{x.patient.name || "Tanpa nama"}</b><span style={styles.small}>{x.patient.medicalRecordNumber || "No. RM —"} · {new Date(x.updatedAt).toLocaleString("id-ID")}</span></div><button type="button" onClick={() => loadCase(x.id)} style={styles.secondary}>Buka</button><button type="button" onClick={() => removeCase(x.id)} style={styles.danger} title="Hapus"><Trash2 size={13}/></button></div>)}</section>}
+
+      <section style={styles.card}>
+        <div style={styles.cardHead}><div><div style={styles.eyebrow}>PATIENT RECORD</div><h2 style={styles.h2}>Data Pasien</h2><span style={styles.small}>Minimal isi nama pasien atau nomor rekam medis.</span></div><span style={savedAt ? styles.statusGood : styles.statusDraft}>{savedAt ? "Tersimpan" : "Draft"}</span></div>
+        <div style={styles.patientGrid}>
+          <label style={styles.label}>Nama pasien<input value={patient.name} onChange={(e) => setPatient({ ...patient, name: e.target.value })} placeholder="Nama lengkap" style={styles.input}/></label>
+          <label style={styles.label}>No. rekam medis<input value={patient.medicalRecordNumber} onChange={(e) => setPatient({ ...patient, medicalRecordNumber: e.target.value })} placeholder="No. RM" style={styles.input}/></label>
+          <label style={styles.label}>Tanggal lahir<input type="date" value={patient.birthDate} onChange={(e) => setPatient({ ...patient, birthDate: e.target.value })} style={styles.input}/></label>
+          <label style={styles.label}>Jenis kelamin<select value={patient.sex} onChange={(e) => setPatient({ ...patient, sex: e.target.value as Patient["sex"] })} style={styles.input}><option value="">Pilih</option><option value="Laki-laki">Laki-laki</option><option value="Perempuan">Perempuan</option></select></label>
         </div>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#16a34a" }} />
-          <span style={{ fontSize: 10, color: "#657188" }}>{savedAt ? `Tersimpan ${new Date(savedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}` : "Draft"}</span>
+        <div style={styles.actions}><button type="button" onClick={newCase} style={styles.secondary}><FileText size={13}/> Kasus Baru</button><button type="button" onClick={saveCase} disabled={saving} style={styles.primary}>{saving ? <Loader2 size={13}/> : <Save size={13}/>} {saving ? "Menyimpan…" : "Simpan Encounter"}</button></div>
+      </section>
+
+      <nav style={styles.steps}>{steps.map((x, i) => <button type="button" key={x} onClick={() => setStep(i)} style={{ ...styles.step, color: i === step ? "#2563eb" : i < step ? "#15957e" : "#9aa5b6" }}><span style={{ ...styles.stepCircle, background: i === step ? "#2563eb" : i < step ? "#eaf9f4" : "#fff", color: i === step ? "#fff" : i < step ? "#15957e" : "#98a3b4", borderColor: i === step ? "#2563eb" : i < step ? "#a9e5d8" : "#dce2eb" }}>{i < step ? <Check size={11}/> : i + 1}</span>{x}</button>)}</nav>
+
+      <div style={styles.grid}>
+        <div>
+          <section style={styles.card}>
+            <div style={styles.cardHead}><div><div style={styles.eyebrow}>STEP 01 · KELUHAN</div><h2 style={styles.h2}>Keluhan & gambaran awal</h2><span style={styles.small}>Masukkan keluhan dalam bahasa bebas.</span></div><span style={styles.chip}>{preview.engineVersion}</span></div>
+            <textarea value={complaint} onChange={(e) => { setComplaint(e.target.value); setSavedAt(""); }} placeholder="Contoh: demam sejak 3 hari, sakit kepala, nyeri badan, mual…" style={styles.textarea}/>
+            <div style={styles.tags}>{preview.extracted.length ? preview.extracted.map((x) => <span key={x} style={styles.tag}>{x}</span>) : <span style={styles.small}>Belum ada temuan terstruktur.</span>}</div>
+            <div style={styles.actions}><button type="button" onClick={runAnalysis} style={styles.primary}><Stethoscope size={14}/> Jalankan Analisis <ArrowRight size={14}/></button></div>
+          </section>
+
+          <section style={styles.card}>
+            <div style={styles.cardHead}><div><div style={styles.eyebrow}>STEP 02 · ANAMNESIS</div><h2 style={styles.h2}>Anamnesis terarah</h2><span style={styles.small}>Pertanyaan mengikuti gejala yang terdeteksi.</span></div><span style={styles.chipAmber}>{preview.questions.length} aktif</span></div>
+            {!preview.questions.length ? <div style={styles.empty}>Isi keluhan untuk memunculkan pertanyaan klinis.</div> : preview.questions.map((q) => <div key={q.id} style={styles.question}><div><b style={{ fontSize: 10 }}>{q.text}</b><span style={styles.small}>{q.whyItMatters}</span></div><div style={styles.answerRow}>{(["yes", "no", "unknown"] as QuestionAnswer[]).map((a) => <button type="button" key={a} onClick={() => { setAnswers({ ...answers, [q.id]: a }); setSavedAt(""); }} style={{ ...styles.answer, background: answers[q.id] === a ? "#edf4ff" : "#fff", borderColor: answers[q.id] === a ? "#9dbbf5" : "#dce3ee" }}>{a === "yes" ? "Ya" : a === "no" ? "Tidak" : "Belum tahu"}</button>)}</div></div>)}
+          </section>
+
+          <section style={styles.card}>
+            <div style={styles.cardHead}><div><div style={styles.eyebrow}>STEP 03 · PEMERIKSAAN</div><h2 style={styles.h2}>Tanda vital</h2></div></div>
+            <div style={styles.vitals}>{([ ["bp","TD","mmHg"], ["hr","Nadi","/menit"], ["rr","RR","/menit"], ["temp","Suhu","°C"], ["spo2","SpO₂","%"] ] as const).map(([key, name, unit]) => <label key={key} style={styles.label}>{name}<div style={{ position: "relative" }}><input value={vitals[key] || ""} onChange={(e) => { setVitals({ ...vitals, [key]: e.target.value }); setSavedAt(""); }} placeholder="—" inputMode="decimal" style={{ ...styles.input, paddingRight: 38 }}/><span style={styles.unit}>{unit}</span></div></label>)}</div>
+            <div style={styles.warning}><AlertTriangle size={14}/> Kolom kosong diperlakukan sebagai data belum tersedia.</div>
+            <div style={styles.actions}><button type="button" onClick={runAnalysis} style={styles.primary}>{analysis ? "Analisis Ulang" : "Jalankan Analisis"}<ArrowRight size={13}/></button></div>
+          </section>
+
+          <section style={styles.card}>
+            <div style={styles.cardHead}><div><div style={styles.eyebrow}>STEP 04 · CLINICAL REASONING</div><h2 style={styles.h2}>Analisis kasus</h2><span style={styles.small}>Hasil dibuat dari snapshot ketika tombol analisis ditekan.</span></div><span style={analysis ? styles.statusGood : styles.statusDraft}>{analysis ? "Analisis tersedia" : "Belum dianalisis"}</span></div>
+            {!analysis ? <div style={styles.empty}><Stethoscope size={20}/><div><b>Belum ada hasil analisis</b><span style={styles.small}>Isi pasien dan keluhan, lalu klik Jalankan Analisis.</span></div></div> : <>
+              {stale && <div style={styles.warning}><AlertTriangle size={14}/><span style={{ flex: 1 }}>Data berubah sejak analisis terakhir.</span><button type="button" onClick={runAnalysis} style={styles.primarySmall}>Analisis ulang</button></div>}
+              <div style={styles.metrics}><Metric value={String(analysis.differentials.length)} label="Differential"/><Metric value={String(analysis.missing.length)} label="Data kurang"/><Metric value={String(analysis.redFlags.length)} label="Safety flags"/></div>
+              {analysis.differentials.map((d, i) => <button key={d.name} type="button" onClick={() => setSelectedDx(d.name)} style={{ ...styles.dx, borderColor: selected?.name === d.name ? "#9fbcfb" : "#e2e8f0", background: selected?.name === d.name ? "#f8fbff" : "#fff" }}><span style={styles.rank}>{i + 1}</span><span style={{ flex: 1, textAlign: "left" }}><b style={{ display: "block", fontSize: 10 }}>{d.name}</b><span style={styles.small}>{d.reason}</span><small style={{ display: "block", color: "#71809a", marginTop: 4 }}>{d.tags.join(" · ")}</small></span><em style={{ fontStyle: "normal", fontSize: 8, color: "#22826f" }}>{d.level}</em><ArrowRight size={13}/></button>)}
+              <div style={styles.dxBox}><div style={styles.eyebrow}>DIAGNOSIS KERJA</div><select value={selected?.name || ""} onChange={(e) => setSelectedDx(e.target.value)} style={styles.input}>{analysis.differentials.map((d) => <option key={d.name}>{d.name}</option>)}</select></div>
+              <div style={styles.warning}><AlertTriangle size={14}/><span>{analysis.disposition.title} — {analysis.disposition.reason}</span></div>
+              <div style={styles.actions}><button type="button" onClick={() => setStep(5)} style={styles.primary}>Lanjut ke Rencana <ArrowRight size={13}/></button></div>
+            </>}
+          </section>
+
+          <section style={styles.card}>
+            <div style={styles.cardHead}><div><div style={styles.eyebrow}>STEP 05 · RENCANA</div><h2 style={styles.h2}>Clinical plan & SOAP</h2></div></div>
+            {!analysis ? <div style={styles.empty}>Jalankan analisis terlebih dahulu.</div> : <><div style={styles.planList}>{analysis.investigations.map((x) => <div key={x.name} style={styles.planRow}><Check size={13}/><div style={{ flex: 1 }}><b>{x.name}</b><span style={styles.small}>{x.reason}</span></div><em>{x.priority}</em></div>)}{analysis.management.map((x) => <div key={x} style={styles.planRow}><ShieldCheck size={13}/><div style={{ flex: 1 }}><b>Clinical consideration</b><span style={styles.small}>{x}</span></div></div>)}</div><details style={{ marginTop: 12 }}><summary style={{ cursor: "pointer", fontSize: 9, fontWeight: 700 }}>Lihat SOAP draft</summary><div style={{ marginTop: 8, display: "grid", gap: 7 }}>{([ ["S", analysis.soap.subjective], ["O", analysis.soap.objective], ["A", analysis.soap.assessment], ["P", analysis.soap.plan] ] as const).map(([k,v]) => <div key={k} style={{ display: "flex", gap: 8 }}><b style={styles.soapKey}>{k}</b><span style={styles.small}>{v}</span></div>)}</div></details><div style={styles.actions}><button type="button" onClick={saveCase} disabled={saving} style={styles.primary}>{saving ? "Menyimpan…" : "Review & Simpan Encounter"}<Save size={13}/></button></div></>}
+          </section>
         </div>
-      </header>
 
-      <div style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 24px 48px" }}>
-        <section style={{ marginBottom: 18, display: "flex", justifyContent: "space-between", gap: 20, alignItems: "flex-start" }}>
-          <div><div style={{ fontSize: 9, fontWeight: 800, letterSpacing: ".14em", color: "#6880a8", marginBottom: 6 }}>CLINICAL WORKSPACE</div><h1 style={{ margin: 0, fontSize: 27, color: "#10295b", letterSpacing: "-.03em" }}>Clinical Encounter</h1><p style={{ margin: "7px 0 0", color: "#738097", fontSize: 11, lineHeight: 1.6 }}>Susun data pasien, jalankan clinical reasoning, lalu simpan encounter agar dapat dibuka kembali.</p></div>
-          <button type="button" onClick={() => setShowSaved((v) => !v)} style={{ border: "1px solid #dce3ee", background: "#fff", borderRadius: 10, padding: "9px 12px", display: "flex", gap: 8, alignItems: "center", color: "#516079", cursor: "pointer", fontSize: 10 }}><Search size={14} /> {savedCases.length} Kasus tersimpan</button>
-        </section>
-
-        {notice && <div style={{ background: "#eef5ff", border: "1px solid #d7e5ff", color: "#315b9f", borderRadius: 10, padding: "10px 12px", display: "flex", alignItems: "center", gap: 8, fontSize: 10, marginBottom: 14 }}><Info size={15} /><span style={{ flex: 1 }}>{notice}</span><button onClick={() => setNotice("")} style={{ border: 0, background: "transparent", color: "inherit", cursor: "pointer" }}>Tutup</button></div>}
-
-        {showSaved && <section style={{ background: "#fff", border: "1px solid #e3e9f2", borderRadius: 14, padding: 14, marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}><b style={{ fontSize: 12 }}>Kasus tersimpan</b><button onClick={() => setShowSaved(false)} style={{ border: 0, background: "transparent", color: "#8793a7", cursor: "pointer" }}>Tutup</button></div>
-          {!savedCases.length ? <p style={{ margin: 0, color: "#8793a7", fontSize: 10 }}>Belum ada encounter tersimpan di browser ini.</p> : savedCases.map((item) => <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderTop: "1px solid #eef1f5" }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: "#eff5ff", color: "#2f64bd", display: "grid", placeItems: "center", fontSize: 9, fontWeight: 800 }}>{(item.patient.name || item.patient.medicalRecordNumber || "PS").slice(0, 2).toUpperCase()}</div>
-            <div style={{ flex: 1 }}><b style={{ display: "block", fontSize: 10 }}>{item.patient.name || "Tanpa nama"}</b><span style={{ fontSize: 8, color: "#8a95a7" }}>{item.patient.medicalRecordNumber || "No RM —"} · {new Date(item.updatedAt).toLocaleString("id-ID")}</span></div>
-            <button onClick={() => loadCase(item.id)} style={{ border: "1px solid #dce3ee", background: "#fff", borderRadius: 7, padding: "7px 9px", fontSize: 9, cursor: "pointer" }}>Buka</button>
-            <button onClick={() => removeCase(item.id)} style={{ border: "1px solid #f0d5d5", background: "#fff", color: "#c24d4d", borderRadius: 7, padding: "7px 9px", cursor: "pointer" }} title="Hapus"><Trash2 size={13} /></button>
-          </div>)}
-        </section>}
-
-        <section style={{ background: "#fff", border: "1px solid #e1e7f0", borderRadius: 15, padding: 16, marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 13 }}><div><div style={{ fontSize: 8, fontWeight: 800, letterSpacing: ".13em", color: "#6d81a5", marginBottom: 4 }}>PATIENT RECORD</div><h2 style={{ margin: 0, fontSize: 15, color: "#10295b" }}>Data Pasien</h2></div><span style={{ fontSize: 9, background: savedAt ? "#eaf9f4" : "#f2f5f9", color: savedAt ? "#16816c" : "#7c8799", borderRadius: 6, padding: "5px 7px", fontWeight: 700 }}>{savedAt ? "Tersimpan" : "Draft"}</span></div>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 1fr", gap: 9 }}>
-            <label style={labelStyle}>Nama pasien<input value={patient.name} onChange={(e) => updatePatient("name", e.target.value)} placeholder="Nama lengkap" style={inputStyle} /></label>
-            <label style={labelStyle}>No. rekam medis<input value={patient.medicalRecordNumber} onChange={(e) => updatePatient("medicalRecordNumber", e.target.value)} placeholder="No. RM" style={inputStyle} /></label>
-            <label style={labelStyle}>Tanggal lahir<input type="date" value={patient.birthDate} onChange={(e) => updatePatient("birthDate", e.target.value)} style={inputStyle} /></label>
-            <label style={labelStyle}>Jenis kelamin<select value={patient.sex} onChange={(e) => updatePatient("sex", e.target.value as PatientDraft["sex"])} style={inputStyle}><option value="">Pilih</option><option>Laki-laki</option><option>Perempuan</option></select></label>
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}><button type="button" onClick={newCase} style={secondaryStyle}><FileText size={13} /> Kasus Baru</button><button type="button" onClick={saveCase} disabled={saving} style={primaryStyle}>{saving ? <><Loader2 size={13} /> Menyimpan…</> : <><Save size={13} /> Simpan Encounter</>}</button></div>
-        </section>
-
-        <nav style={{ display: "grid", gridTemplateColumns: `repeat(${steps.length}, 1fr)`, gap: 4, margin: "0 3px 14px" }}>
-          {steps.map((name, i) => <button key={name} type="button" onClick={() => setStep(i)} style={{ border: 0, background: "transparent", cursor: "pointer", color: i === step ? "#2563eb" : i < step ? "#0f9a83" : "#99a5b6", fontWeight: i === step ? 700 : 500, fontSize: 9, padding: "8px 4px" }}><span style={{ display: "inline-grid", placeItems: "center", width: 20, height: 20, borderRadius: "50%", marginRight: 5, border: `1px solid ${i === step ? "#2563eb" : i < step ? "#9fe2d3" : "#dce2ea"}`, background: i === step ? "#2563eb" : i < step ? "#eafaf6" : "#fff", color: i === step ? "#fff" : i < step ? "#0f9a83" : "#98a3b4" }}>{i < step ? <Check size={11} /> : i + 1}</span>{name}</button>)}
-        </nav>
-
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.7fr) minmax(280px, .8fr)", gap: 14 }}>
-          <div>
-            <section style={cardStyle}>
-              <div style={sectionHead}><div><div style={eyebrow}>STEP 01 · KELUHAN</div><h3 style={h3}>Keluhan & gambaran awal</h3><span style={sub}>Tulis bebas dengan bahasa klinis. Sistem akan mengekstrak gejala yang dikenali.</span></div><span style={chipStyle}>{preview.engineVersion}</span></div>
-              <textarea value={complaint} onChange={(e) => { setComplaint(e.target.value); setSavedAt(""); }} placeholder="Contoh: laki-laki 58 tahun, nyeri dada sejak 2 jam, menjalar ke lengan kiri, keringat dingin..." style={{ width: "100%", minHeight: 108, resize: "vertical", border: 0, outline: 0, borderRadius: 10, background: "#f8fafc", padding: 12, fontSize: 11, lineHeight: 1.6, boxSizing: "border-box" }} />
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginTop: 9 }}>{preview.extracted.length ? preview.extracted.map((x) => <span key={x} style={{ background: "#eef4ff", color: "#3c619b", borderRadius: 5, padding: "4px 6px", fontSize: 8 }}>{x}</span>) : <span style={{ color: "#98a2b1", fontSize: 9 }}>Belum ada temuan terstruktur</span>}</div>
-              <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}><button type="button" onClick={runAnalysis} style={primaryStyle}><Stethoscope size={14} /> Jalankan Analisis</button></div>
-            </section>
-
-            <section style={cardStyle}>
-              <div style={sectionHead}><div><div style={eyebrow}>STEP 02 · ANAMNESIS</div><h3 style={h3}>Pertanyaan terarah</h3><span style={sub}>Pertanyaan muncul mengikuti gejala yang terdeteksi. Pilih Ya, Tidak, atau Belum tahu.</span></div><span style={{ ...chipStyle, background: "#fff7e6", color: "#ad7110" }}>{preview.questions.length} aktif</span></div>
-              {!preview.questions.length ? <div style={emptyStyle}>Masukkan keluhan terlebih dahulu untuk memunculkan anamnesis terarah.</div> : preview.questions.map((q) => <div key={q.id} style={{ borderTop: "1px solid #edf0f4", padding: "11px 0" }}><div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}><div><b style={{ display: "block", fontSize: 10 }}>{q.text}</b><span style={{ display: "block", marginTop: 4, color: "#8792a4", fontSize: 8, lineHeight: 1.45 }}>{q.whyItMatters}</span></div><span style={{ height: "fit-content", fontSize: 7, padding: "3px 5px", borderRadius: 4, background: q.category === "safety" ? "#fff2f2" : q.category === "disposition" ? "#fff8e9" : "#f0f5ff", color: q.category === "safety" ? "#c45555" : q.category === "disposition" ? "#a16d17" : "#5474a8" }}>{q.category}</span></div><div style={{ display: "flex", gap: 6, marginTop: 8 }}>{(["yes", "no", "unknown"] as QuestionAnswer[]).map((a) => <button key={a} type="button" onClick={() => answerQuestion(q.id, a)} style={{ border: "1px solid #dce3ee", borderRadius: 7, padding: "6px 9px", background: answers[q.id] === a ? (a === "yes" ? "#eaf9f4" : "#eef4ff") : "#fff", color: answers[q.id] === a ? "#236aa0" : "#69768d", fontSize: 8, cursor: "pointer" }}>{a === "yes" ? "Ya" : a === "no" ? "Tidak" : "Belum tahu"}</button>)}</div></div>)}
-              <div style={{ display: "flex", justifyContent: "flex-end" }}><button type="button" onClick={() => setStep(3)} style={secondaryStyle}>Lanjut ke pemeriksaan <ArrowRight size={13} /></button></div>
-            </section>
-
-            <section style={cardStyle}>
-              <div style={sectionHead}><div><div style={eyebrow}>STEP 03 · PEMERIKSAAN</div><h3 style={h3}>Tanda vital</h3><span style={sub}>Masukkan nilai yang tersedia. Data kosong tetap dianggap belum tersedia.</span></div></div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>{([["bp", "TD", "mmHg"], ["hr", "Nadi", "/menit"], ["rr", "RR", "/menit"], ["temp", "Suhu", "°C"], ["spo2", "SpO₂", "%"]] as const).map(([key, name, unit]) => <label key={key} style={labelStyle}>{name}<div style={{ position: "relative" }}><input value={vitals[key] ?? ""} onChange={(e) => { setVitals((v) => ({ ...v, [key]: e.target.value })); setSavedAt(""); }} inputMode="decimal" placeholder="—" style={{ ...inputStyle, paddingRight: 46 }} /><span style={{ position: "absolute", right: 8, top: 9, color: "#9aa4b4", fontSize: 7 }}>{unit}</span></div></label>)}</div>
-              <div style={{ marginTop: 10, background: "#fff8ec", color: "#996919", borderRadius: 8, padding: 9, fontSize: 8, display: "flex", gap: 7 }}><AlertTriangle size={14} /><span>Jangan menganggap kolom kosong sebagai normal. Review kembali data sebelum mengambil keputusan klinis.</span></div>
-              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}><button type="button" onClick={() => setStep(1)} style={secondaryStyle}>Kembali</button><button type="button" onClick={runAnalysis} style={primaryStyle}>{analysis ? "Analisis Ulang" : "Jalankan Analisis"}<ArrowRight size={13} /></button></div>
-            </section>
-
-            <section style={cardStyle}>
-              <div style={sectionHead}><div><div style={eyebrow}>STEP 04 · CLINICAL REASONING</div><h3 style={h3}>Analisis kasus</h3><span style={sub}>{analysis ? "Hasil diambil dari snapshot saat tombol analisis ditekan." : "Hasil belum dibuat. Jalankan analisis dari data pasien."}</span></div><span style={{ ...chipStyle, background: analysis ? "#eaf9f4" : "#f2f5f9", color: analysis ? "#16816c" : "#7c8799" }}>{analysis ? "Analisis tersedia" : "Belum dianalisis"}</span></div>
-              {!analysis ? <div style={emptyStyle}><Stethoscope size={20} /><div><b>Belum ada hasil analisis</b><span>Isi pasien + keluhan, lalu klik <strong>Jalankan Analisis</strong>. Hasil akan muncul di area ini.</span></div></div> : <>
-                {analysisStale && <div style={{ background: "#fff7e8", color: "#9a6916", borderRadius: 9, padding: 10, display: "flex", alignItems: "center", gap: 8, fontSize: 9, marginBottom: 10 }}><AlertTriangle size={14} /><span style={{ flex: 1 }}>Data berubah sejak analisis terakhir.</span><button type="button" onClick={runAnalysis} style={{ border: 0, background: "#9a6916", color: "#fff", borderRadius: 6, padding: "6px 8px", fontSize: 8 }}>Analisis ulang</button></div>}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}><metric value={String(analysis.differentials.length)} label="Differential" /><metric value={String(analysis.missing.length)} label="Data belum lengkap" /><metric value={String(analysis.redFlags.length)} label="Safety flags" /></div>
-                {analysis.differentials.map((d, i) => <button key={d.name} type="button" onClick={() => setSelectedDx(d.name)} style={{ width: "100%", display: "flex", gap: 9, alignItems: "center", textAlign: "left", border: selected?.name === d.name ? "1px solid #b8cdfb" : "1px solid #e3e9f2", background: selected?.name === d.name ? "#f8fbff" : "#fff", borderRadius: 9, padding: 10, marginTop: 7, cursor: "pointer" }}><span style={{ width: 22, height: 22, borderRadius: "50%", display: "grid", placeItems: "center", background: "#eff3f8", color: "#6c7a91", fontSize: 8, fontWeight: 800 }}>{i + 1}</span><span style={{ flex: 1 }}><b style={{ display: "block", fontSize: 10, color: "#22375f" }}>{d.name}</b><span style={{ display: "block", marginTop: 3, color: "#8792a4", fontSize: 8, lineHeight: 1.45 }}>{d.reason}</span><small style={{ display: "block", marginTop: 5, color: "#70809a", fontSize: 7 }}>{d.tags.join(" · ")}</small></span><em style={{ fontStyle: "normal", fontSize: 8, color: "#20836f" }}>{d.level}</em></button>)}
-                <div style={{ marginTop: 12, border: "1px solid #d9e4f5", borderRadius: 10, padding: 11, background: "#f9fbff" }}><div style={eyebrow}>DIAGNOSIS KERJA</div><select value={selected?.name ?? ""} onChange={(e) => setSelectedDx(e.target.value)} style={{ ...inputStyle, marginTop: 5, fontWeight: 700 }} >{analysis.differentials.map((d) => <option key={d.name}>{d.name}</option>)}</select></div>
-                <div style={{ marginTop: 10, background: "#fffaf0", borderRadius: 9, padding: 10 }}><b style={{ fontSize: 9, color: "#956a1e" }}>Data yang masih dibutuhkan</b>{analysis.missing.slice(0, 8).map((x) => <div key={x} style={{ display: "flex", gap: 6, marginTop: 6, fontSize: 8, color: "#8c6d32" }}><AlertTriangle size={12} /><span>{x}</span></div>)}</div>
-                <div style={{ marginTop: 10, borderRadius: 10, padding: 11, background: analysis.disposition.status === "stabilize-first" ? "#fff1f1" : analysis.disposition.status === "urgent-review" ? "#fff8e9" : "#eefaf7" }}><div style={eyebrow}>DISPOSITION SUPPORT</div><b style={{ display: "block", marginTop: 3, fontSize: 11 }}>{analysis.disposition.title}</b><span style={{ display: "block", marginTop: 4, fontSize: 8, color: "#6f7b8f", lineHeight: 1.5 }}>{analysis.disposition.reason}</span></div>
-              </>}
-            </section>
-
-            <section style={cardStyle}>
-              <div style={sectionHead}><div><div style={eyebrow}>STEP 05 · RENCANA</div><h3 style={h3}>Clinical plan & SOAP</h3><span style={sub}>Rencana ditampilkan hanya dari hasil analisis yang tersedia.</span></div></div>
-              {!analysis ? <div style={emptyStyle}>Jalankan analisis untuk membentuk clinical plan.</div> : <>
-                <div style={{ display: "grid", gap: 8 }}>{analysis.investigations.map((x) => <div key={x.name} style={rowStyle}><Check size={14} /><div style={{ flex: 1 }}><b>{x.name}</b><span>{x.reason}</span></div><em>{x.priority}</em></div>)}</div>
-                <div style={{ marginTop: 12, display: "grid", gap: 8 }}>{analysis.management.map((x) => <div key={x} style={rowStyle}><ShieldCheck size={14} /><div style={{ flex: 1 }}><b>Clinical consideration</b><span>{x}</span></div></div>)}</div>
-                {analysis.redFlags.map((x) => <div key={x} style={{ marginTop: 8, background: "#fff2f2", color: "#a14848", borderRadius: 8, padding: 9, fontSize: 8, display: "flex", gap: 7 }}><AlertTriangle size={14} /><span>{x}</span></div>)}
-                <details style={{ marginTop: 11 }}><summary style={{ cursor: "pointer", fontSize: 9, fontWeight: 700 }}>Lihat SOAP draft</summary><div style={{ marginTop: 8, borderTop: "1px solid #edf0f4", paddingTop: 9, display: "grid", gap: 8 }}>{([['S', analysis.soap.subjective], ['O', analysis.soap.objective], ['A', analysis.soap.assessment], ['P', analysis.soap.plan]] as const).map(([k,v]) => <div key={k} style={{ display: "flex", gap: 8 }}><b style={{ width: 20, height: 20, borderRadius: 5, background: "#eef4ff", color: "#3364c4", display: "grid", placeItems: "center", fontSize: 8 }}>{k}</b><span style={{ fontSize: 8, lineHeight: 1.5, color: "#657188" }}>{v}</span></div>)}</div></details>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 13 }}><button type="button" onClick={saveCase} disabled={saving} style={primaryStyle}>{saving ? "Menyimpan…" : "Review & Simpan Encounter"}<Save size={13} /></button></div>
-              </>}
-            </section>
-          </div>
-
-          <aside style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ ...cardStyle, position: "sticky", top: 12 }}><div style={eyebrow}>CASE SUMMARY</div><h3 style={{ ...h3, marginTop: 5 }}>{patient.name || "Pasien baru"}</h3><span style={sub}>{patient.medicalRecordNumber || "No. RM belum diisi"}</span><div style={{ marginTop: 11, display: "grid", gap: 7 }}><summaryRow label="Keluhan" value={complaint ? "Terisi" : "Belum"} /><summaryRow label="Anamnesis" value={`${Object.keys(answers).length} jawaban`} /><summaryRow label="Tanda vital" value={Object.values(vitals).filter(Boolean).length + "/5"} /><summaryRow label="Analisis" value={analysis ? "Siap" : "Belum"} /><summaryRow label="Diagnosis kerja" value={selected?.name ?? "Belum dipilih"} /></div></div>
-            <div style={{ background: "#eef9f6", border: "1px solid #ccebe2", borderRadius: 11, padding: 11, color: "#227967", fontSize: 8, lineHeight: 1.55 }}><div style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 800, marginBottom: 4 }}><ShieldCheck size={14} /> Doctor-in-the-loop</div>Sistem menyusun pertimbangan dan dokumentasi. Diagnosis final, terapi, dan disposition tetap harus direview dokter.</div>
-          </aside>
-        </div>
+        <aside>
+          <section style={{ ...styles.card, position: "sticky", top: 12 }}><div style={styles.eyebrow}>CASE SUMMARY</div><h2 style={styles.h2}>{patient.name || "Pasien baru"}</h2><span style={styles.small}>{patient.medicalRecordNumber || "No. RM belum diisi"}</span><SummaryRow label="Keluhan" value={complaint ? "Terisi" : "Belum"}/><SummaryRow label="Anamnesis" value={`${Object.keys(answers).length} jawaban`}/><SummaryRow label="Tanda vital" value={`${Object.values(vitals).filter(Boolean).length}/5`}/><SummaryRow label="Analisis" value={analysis ? "Tersedia" : "Belum"}/><SummaryRow label="Diagnosis kerja" value={selected?.name || "Belum dipilih"}/></section>
+          <div style={styles.doctorNote}><ShieldCheck size={14}/><span><b>Doctor-in-the-loop</b><br/>Sistem menyusun pertimbangan. Keputusan klinis tetap direview dokter.</span></div>
+        </aside>
       </div>
-    </main>
-  );
+    </div>
+  </main>;
 }
 
-const cardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e1e7f0", borderRadius: 14, padding: 15, marginBottom: 12 };
-const sectionHead: React.CSSProperties = { display: "flex", justifyContent: "space-between", gap: 12, alignItems: "flex-start", marginBottom: 11 };
-const eyebrow: React.CSSProperties = { fontSize: 8, fontWeight: 800, letterSpacing: ".12em", color: "#6d81a5" };
-const h3: React.CSSProperties = { margin: "3px 0 0", fontSize: 14, color: "#10295b" };
-const sub: React.CSSProperties = { display: "block", marginTop: 4, fontSize: 8, color: "#8994a6", lineHeight: 1.5 };
-const chipStyle: React.CSSProperties = { background: "#eef4ff", color: "#4e6a98", borderRadius: 5, padding: "5px 7px", fontSize: 7, fontWeight: 700, whiteSpace: "nowrap" };
-const inputStyle: React.CSSProperties = { width: "100%", boxSizing: "border-box", marginTop: 5, border: "1px solid #dce3ee", background: "#fff", borderRadius: 7, padding: "8px 9px", outline: 0, color: "#1e3156", fontSize: 9 };
-const labelStyle: React.CSSProperties = { display: "block", color: "#6b778e", fontSize: 8, fontWeight: 700 };
-const primaryStyle: React.CSSProperties = { border: "1px solid #2563eb", background: "linear-gradient(135deg,#2563eb,#1f58d5)", color: "#fff", borderRadius: 8, padding: "9px 12px", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, cursor: "pointer" };
-const secondaryStyle: React.CSSProperties = { border: "1px solid #dce3ee", background: "#fff", color: "#607089", borderRadius: 8, padding: "8px 10px", display: "inline-flex", alignItems: "center", gap: 7, fontSize: 9, fontWeight: 700, cursor: "pointer" };
-const emptyStyle: React.CSSProperties = { minHeight: 76, display: "flex", alignItems: "center", gap: 10, border: "1px dashed #dfe5ee", borderRadius: 10, padding: 12, color: "#8290a4", fontSize: 9 };
-const rowStyle: React.CSSProperties = { display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 0", borderTop: "1px solid #edf0f4", color: "#1b6f60", fontSize: 8 };
+function Metric({ value, label }: { value: string; label: string }) { return <div style={styles.metric}><b>{value}</b><span>{label}</span></div>; }
+function SummaryRow({ label, value }: { label: string; value: string }) { return <div style={styles.summaryRow}><span>{label}</span><b>{value}</b></div>; }
 
-function metric({ value, label }: { value: string; label: string }) {
-  return <div style={{ background: "#f8fafc", border: "1px solid #eef1f5", borderRadius: 9, padding: 9 }}><b style={{ display: "block", fontSize: 16, color: "#10295b" }}>{value}</b><span style={{ display: "block", marginTop: 2, fontSize: 7, color: "#7e899b" }}>{label}</span></div>;
-}
-
-function summaryRow({ label, value }: { label: string; value: string }) {
-  return <div style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "6px 0", borderTop: "1px solid #eef1f5" }}><span style={{ fontSize: 8, color: "#8691a3" }}>{label}</span><b style={{ fontSize: 8, color: "#334768", textAlign: "right" }}>{value}</b></div>;
-}
+const styles: Record<string, CSSProperties> = {
+  page: { minHeight: "100vh", background: "#f5f8fc", color: "#16213d", fontFamily: "Inter,Arial,sans-serif" },
+  header: { height: 64, background: "#fff", borderBottom: "1px solid #e5eaf2", display: "flex", alignItems: "center", padding: "0 26px", gap: 15 },
+  back: { display: "flex", alignItems: "center", gap: 6, color: "#65728a", textDecoration: "none", fontSize: 10 },
+  brand: { display: "flex", alignItems: "center", gap: 9 }, logo: { width: 34, height: 34, borderRadius: 11, display: "grid", placeItems: "center", background: "#eaf3ff", color: "#2563eb" }, brandTitle: { display: "block", fontSize: 14, color: "#10295b" }, brandSub: { display: "block", fontSize: 8, color: "#8b96a8", marginTop: 2 },
+  container: { maxWidth: 1180, margin: "0 auto", padding: "24px 22px 50px" }, titleRow: { display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start", marginBottom: 15 }, eyebrow: { fontSize: 8, fontWeight: 800, letterSpacing: ".12em", color: "#6a81a7" }, h1: { margin: 0, fontSize: 27, color: "#10295b", letterSpacing: "-.03em" }, h2: { margin: "3px 0 0", fontSize: 14, color: "#10295b" }, muted: { margin: "7px 0 0", fontSize: 10, color: "#7b8799", lineHeight: 1.5 }, small: { display: "block", marginTop: 4, fontSize: 8, color: "#8792a4", lineHeight: 1.45 }, card: { background: "#fff", border: "1px solid #e1e7f0", borderRadius: 14, padding: 14, marginBottom: 12 }, cardHead: { display: "flex", justifyContent: "space-between", gap: 10, alignItems: "flex-start", marginBottom: 11 }, notice: { background: "#eef5ff", border: "1px solid #d7e5ff", color: "#315b9f", borderRadius: 9, padding: "9px 11px", display: "flex", gap: 7, alignItems: "center", fontSize: 9, marginBottom: 12 }, linkButton: { border: 0, background: "transparent", color: "#516a92", cursor: "pointer", fontSize: 9 }, savedRow: { display: "flex", alignItems: "center", gap: 9, borderTop: "1px solid #edf0f4", padding: "8px 0" }, avatar: { width: 31, height: 31, borderRadius: 9, background: "#eff5ff", color: "#2d61b4", display: "grid", placeItems: "center", fontSize: 9, fontWeight: 800 }, danger: { border: "1px solid #f0d2d2", background: "#fff", color: "#bf4d4d", borderRadius: 7, padding: "7px 8px", cursor: "pointer" }, statusGood: { background: "#eaf9f4", color: "#16816c", padding: "5px 7px", borderRadius: 6, fontSize: 8, fontWeight: 700 }, statusDraft: { background: "#f2f5f9", color: "#7c8799", padding: "5px 7px", borderRadius: 6, fontSize: 8, fontWeight: 700 }, chip: { background: "#eef4ff", color: "#506b9a", borderRadius: 5, padding: "5px 7px", fontSize: 7, fontWeight: 700 }, chipAmber: { background: "#fff7e7", color: "#a96e11", borderRadius: 5, padding: "5px 7px", fontSize: 7, fontWeight: 700 }, patientGrid: { display: "grid", gridTemplateColumns: "2fr 1.2fr 1fr 1fr", gap: 8 }, label: { display: "block", fontSize: 8, fontWeight: 700, color: "#69768b" }, input: { width: "100%", boxSizing: "border-box", marginTop: 5, border: "1px solid #dce3ee", borderRadius: 7, padding: "8px 9px", background: "#fff", color: "#1f3155", fontSize: 9, outline: 0 }, textarea: { width: "100%", minHeight: 108, boxSizing: "border-box", resize: "vertical", border: 0, outline: 0, background: "#f8fafc", borderRadius: 9, padding: 11, fontSize: 10, lineHeight: 1.6 }, actions: { display: "flex", justifyContent: "flex-end", gap: 7, marginTop: 11 }, primary: { border: "1px solid #2563eb", background: "linear-gradient(135deg,#2563eb,#1f58d5)", color: "#fff", borderRadius: 8, padding: "8px 10px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 8, fontWeight: 700, cursor: "pointer" }, primarySmall: { border: 0, background: "#a36f18", color: "#fff", borderRadius: 6, padding: "5px 7px", fontSize: 7 }, secondary: { border: "1px solid #dce3ee", background: "#fff", color: "#617089", borderRadius: 8, padding: "8px 10px", display: "inline-flex", alignItems: "center", gap: 6, fontSize: 8, fontWeight: 700, cursor: "pointer" }, steps: { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 3, marginBottom: 13 }, step: { border: 0, background: "transparent", cursor: "pointer", fontSize: 8, padding: "7px 3px", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontWeight: 600 }, stepCircle: { width: 20, height: 20, borderRadius: "50%", border: "1px solid", display: "grid", placeItems: "center" }, grid: { display: "grid", gridTemplateColumns: "minmax(0,1.75fr) minmax(270px,.75fr)", gap: 13 }, tags: { display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }, tag: { background: "#eef4ff", color: "#4c6798", padding: "4px 6px", borderRadius: 5, fontSize: 7 }, question: { borderTop: "1px solid #edf0f4", padding: "10px 0", display: "grid", gap: 7 }, answerRow: { display: "flex", gap: 5 }, answer: { border: "1px solid", borderRadius: 7, padding: "6px 8px", fontSize: 8, color: "#5f6e85", cursor: "pointer" }, vitals: { display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 7 }, unit: { position: "absolute", right: 7, top: 9, fontSize: 7, color: "#9aa4b4" }, warning: { marginTop: 9, background: "#fff8ec", color: "#996919", borderRadius: 8, padding: 9, fontSize: 8, display: "flex", alignItems: "center", gap: 7 }, empty: { minHeight: 62, border: "1px dashed #dfe6ef", borderRadius: 9, padding: 11, display: "flex", alignItems: "center", gap: 8, color: "#8490a3", fontSize: 9 }, metrics: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 7, marginBottom: 9 }, metric: { background: "#f8fafc", border: "1px solid #eef1f5", borderRadius: 8, padding: 9 }, metricValue: { fontSize: 16 }, dx: { width: "100%", display: "flex", alignItems: "center", gap: 8, textAlign: "left", border: "1px solid", borderRadius: 9, padding: 9, marginTop: 6, cursor: "pointer" }, rank: { width: 21, height: 21, borderRadius: "50%", background: "#eff3f8", color: "#6d7a91", display: "grid", placeItems: "center", fontSize: 8, fontWeight: 800, flex: "0 0 auto" }, dxBox: { marginTop: 10, border: "1px solid #d9e3f3", background: "#f9fbff", borderRadius: 9, padding: 10 }, planList: { display: "grid", gap: 5 }, planRow: { display: "flex", alignItems: "flex-start", gap: 7, padding: "8px 0", borderTop: "1px solid #edf0f4", fontSize: 8, color: "#1b6f60" }, soapKey: { width: 20, height: 20, borderRadius: 5, background: "#eef4ff", color: "#3364c4", display: "grid", placeItems: "center", fontSize: 8 }, summaryRow: { display: "flex", justifyContent: "space-between", gap: 8, padding: "7px 0", borderTop: "1px solid #edf0f4", fontSize: 8, color: "#8792a4" }, doctorNote: { background: "#eef9f6", border: "1px solid #ccebe2", color: "#227967", borderRadius: 10, padding: 10, fontSize: 8, display: "flex", gap: 7, lineHeight: 1.5 }
+};
