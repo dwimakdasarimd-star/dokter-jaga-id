@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { ArrowLeft, ClipboardList, FileText, Search } from "lucide-react";
 import { listClinicalEncounters, type ClinicalEncounter } from "../../lib/clinical-storage";
 
@@ -8,12 +9,37 @@ export default function RecordsPage() {
   const [items, setItems] = useState<ClinicalEncounter[]>([]);
   const [selected, setSelected] = useState<ClinicalEncounter | null>(null);
   const [query, setQuery] = useState("");
-  useEffect(() => { const x = listClinicalEncounters(); setItems(x); setSelected(x[0] ?? null); }, []);
+  useEffect(() => {
+    const x = listClinicalEncounters();
+    setItems(x);
+    setSelected(x[0] ?? null);
+  }, []);
   const filtered = items.filter((x) => `${x.patient.name} ${x.patient.medicalRecordNumber} ${x.complaint}`.toLowerCase().includes(query.toLowerCase()));
   return <main style={page}><header style={header}><a href="/" style={back}><ArrowLeft size={14}/> Dashboard</a><div><div style={eyebrow}>MEDICAL RECORD</div><h1 style={h1}>Rekam Medis</h1></div></header><div style={layout}>
-    <section style={card}><div style={searchBox}><Search size={14}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari pasien atau keluhan..." style={plain}/></div>{filtered.length===0?<div style={empty}>Belum ada encounter tersimpan.</div>:filtered.map((x)=><button key={x.id} onClick={()=>setSelected(x)} style={{...item, ...(selected?.id===x.id?itemActive:{})}}><div style={avatar}>{(x.patient.name||"PS").slice(0,2).toUpperCase()}</div><div style={{flex:1,textAlign:"left"}}><b>{x.patient.name||"Tanpa nama"}</b><small>{x.patient.medicalRecordNumber||"No. RM —"}</small><small>{x.complaint}</small></div><span style={date}>{new Date(x.updatedAt).toLocaleDateString("id-ID")}</span></button>)}</section>
+    <section style={card}><div style={searchBox}><Search size={14}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari pasien atau keluhan..." style={plain}/></div>{filtered.length===0?<div style={empty}>Belum ada encounter tersimpan.</div>:filtered.map((x)=><button key={x.id} onClick={()=>setSelected(x)} style={{...item, ...(selected?.id===x.id?itemActive:{})}}><div style={avatar}>{(x.patient.name||"PS").slice(0,2).toUpperCase()}</div><div style={itemText}><b>{x.patient.name||"Tanpa nama"}</b><small>{x.patient.medicalRecordNumber||"No. RM —"}</small><small>{x.complaint}</small></div><span style={date}>{new Date(x.updatedAt).toLocaleDateString("id-ID")}</span></button>)}</section>
     <section style={card}>{selected?<><div style={recordHead}><div><div style={eyebrow}>ENCOUNTER DETAIL</div><h2 style={h2}>{selected.patient.name||"Tanpa nama"}</h2><span style={muted}>{selected.patient.medicalRecordNumber||"No. RM —"} · {new Date(selected.updatedAt).toLocaleString("id-ID")}</span></div><a href="/clinical" style={open}><FileText size={13}/> Buka workspace</a></div><Block title="Keluhan" text={selected.complaint}/><Block title="Tanda vital" text={`TD ${selected.vitals.bp||"—"}; Nadi ${selected.vitals.hr||"—"}; RR ${selected.vitals.rr||"—"}; Suhu ${selected.vitals.temp||"—"}; SpO₂ ${selected.vitals.spo2||"—"}`}/><Block title="Diagnosis kerja" text={selected.selectedDx||"Belum dipilih"}/><div style={soap}><div style={soapTitle}><ClipboardList size={14}/> SOAP</div><Block title="S" text={selected.complaint}/><Block title="O" text="Pemeriksaan objektif perlu dilengkapi dan diverifikasi dokter."/><Block title="A" text={selected.selectedDx||"Belum dipilih"}/><Block title="P" text="Lihat clinical plan pada encounter."/></div></>:<div style={empty}>Pilih encounter dari daftar.</div>}</section>
   </div></main>;
 }
 function Block({title,text}:{title:string;text:string}){return <div style={block}><b>{title}</b><span>{text}</span></div>}
-const page={minHeight:"100vh",background:"#f5f8fc",fontFamily:"Inter,Arial,sans-serif",color:"#16213d"}; const header={height:64,background:"#fff",borderBottom:"1px solid #e5eaf2",display:"flex",alignItems:"center",gap:18,padding:"0 28px"}; const back={display:"flex",gap:6,alignItems:"center",color:"#65728a",textDecoration:"none",fontSize:10}; const eyebrow={fontSize:8,fontWeight:800,letterSpacing:".12em",color:"#6a81a7"}; const h1={margin:"3px 0 0",fontSize:20,color:"#10295b"}; const h2={margin:"3px 0 0",fontSize:15,color:"#10295b"}; const muted={display:"block",marginTop:5,fontSize:8,color:"#8590a2"}; const layout={maxWidth:1120,margin:"22px auto",display:"grid",gridTemplateColumns:".85fr 1.5fr",gap:13}; const card={background:"#fff",border:"1px solid #e1e7f0",borderRadius:14,padding:14}; const searchBox={height:36,border:"1px solid #dce3ee",borderRadius:8,display:"flex",alignItems:"center",gap:7,padding:"0 9px",color:"#8b96a8",marginBottom:9}; const plain={border:0,outline:0,width:"100%",fontSize:9}; const item={width:"100%",border:0,borderTop:"1px solid #eef1f5",background:"transparent",padding:"9px 4px",display:"flex",gap:8,alignItems:"center",cursor:"pointer"}; const itemActive={background:"#f5f9ff",borderRadius:8}; const avatar={width:30,height:30,borderRadius:9,background:"#eef4ff",color:"#2d61b4",display:"grid",placeItems:"center",fontSize:8,fontWeight:800}; const date={fontSize:7,color:"#929daf"}; const empty={padding:30,textAlign:"center",color:"#8792a4",fontSize:10}; const recordHead={display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:8}; const open={display:"inline-flex",gap:5,alignItems:"center",color:"#2563eb",fontSize:8,fontWeight:700,textDecoration:"none"}; const block={borderTop:"1px solid #edf0f4",padding:"10px 0",display:"grid",gridTemplateColumns:"100px 1fr",gap:10,fontSize:9}; const soap={marginTop:10,border:"1px solid #e3e9f2",borderRadius:10,padding:10}; const soapTitle={fontWeight:800,fontSize:9,color:"#10295b",display:"flex",gap:6,alignItems:"center",marginBottom:2};
+const page: CSSProperties={minHeight:"100vh",background:"#f5f8fc",fontFamily:"Inter,Arial,sans-serif",color:"#16213d"};
+const header: CSSProperties={height:64,background:"#fff",borderBottom:"1px solid #e5eaf2",display:"flex",alignItems:"center",gap:18,padding:"0 28px"};
+const back: CSSProperties={display:"flex",gap:6,alignItems:"center",color:"#65728a",textDecoration:"none",fontSize:10};
+const eyebrow: CSSProperties={fontSize:8,fontWeight:800,letterSpacing:".12em",color:"#6a81a7"};
+const h1: CSSProperties={margin:"3px 0 0",fontSize:20,color:"#10295b"};
+const h2: CSSProperties={margin:"3px 0 0",fontSize:15,color:"#10295b"};
+const muted: CSSProperties={display:"block",marginTop:5,fontSize:8,color:"#8590a2"};
+const layout: CSSProperties={maxWidth:1120,margin:"22px auto",display:"grid",gridTemplateColumns:".85fr 1.5fr",gap:13};
+const card: CSSProperties={background:"#fff",border:"1px solid #e1e7f0",borderRadius:14,padding:14};
+const searchBox: CSSProperties={height:36,border:"1px solid #dce3ee",borderRadius:8,display:"flex",alignItems:"center",gap:7,padding:"0 9px",color:"#8b96a8",marginBottom:9};
+const plain: CSSProperties={border:0,outline:0,width:"100%",fontSize:9};
+const item: CSSProperties={width:"100%",border:0,borderTop:"1px solid #eef1f5",background:"transparent",padding:"9px 4px",display:"flex",gap:8,alignItems:"center",cursor:"pointer"};
+const itemActive: CSSProperties={background:"#f5f9ff",borderRadius:8};
+const avatar: CSSProperties={width:30,height:30,borderRadius:9,background:"#eef4ff",color:"#2d61b4",display:"grid",placeItems:"center",fontSize:8,fontWeight:800};
+const itemText: CSSProperties={flex:1,textAlign:"left"};
+const date: CSSProperties={fontSize:7,color:"#929daf"};
+const empty: CSSProperties={padding:30,textAlign:"center",color:"#8792a4",fontSize:10};
+const recordHead: CSSProperties={display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:8};
+const open: CSSProperties={display:"inline-flex",gap:5,alignItems:"center",color:"#2563eb",fontSize:8,fontWeight:700,textDecoration:"none"};
+const block: CSSProperties={borderTop:"1px solid #edf0f4",padding:"10px 0",display:"grid",gridTemplateColumns:"100px 1fr",gap:10,fontSize:9};
+const soap: CSSProperties={marginTop:10,border:"1px solid #e3e9f2",borderRadius:10,padding:10};
+const soapTitle: CSSProperties={fontWeight:800,fontSize:9,color:"#10295b",display:"flex",gap:6,alignItems:"center",marginBottom:2};
