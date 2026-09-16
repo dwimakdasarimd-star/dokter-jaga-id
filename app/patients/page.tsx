@@ -1,38 +1,25 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ExternalLink, FilePlus2, Search, UserRound } from "lucide-react";
-import { listClinicalEncounters, type ClinicalEncounter } from "../../lib/clinical-storage";
+import { useMemo, useState } from "react";
+import { Activity, CalendarDays, ChevronRight, FileText, Filter, HeartPulse, Plus, Search, ShieldCheck, Stethoscope, UserRound, X } from "lucide-react";
 
-export default function PatientsPage() {
-  const [items, setItems] = useState<ClinicalEncounter[]>([]);
-  const [query, setQuery] = useState("");
-  useEffect(() => setItems(listClinicalEncounters()), []);
-  const filtered = useMemo(() => items.filter((x) => `${x.patient.name} ${x.patient.medicalRecordNumber}`.toLowerCase().includes(query.toLowerCase())), [items, query]);
-  return <main style={page}>
-    <Header title="Pasien" sub="Patient Directory" action={<a href="/clinical" style={primary}><FilePlus2 size={14}/> Encounter baru</a>} />
-    <section style={card}>
-      <div style={searchBox}><Search size={15}/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Cari nama atau nomor rekam medis..." style={plainInput}/></div>
-      <div style={tableHead}><span>Pasien</span><span>No. RM</span><span>Encounter terakhir</span><span></span></div>
-      {filtered.length === 0 ? <Empty text="Belum ada pasien tersimpan. Buat encounter pertama dari Clinical Assistant."/> : filtered.map((x) => <div key={x.id} style={row}><div style={person}><div style={avatar}>{(x.patient.name || "PS").slice(0,2).toUpperCase()}</div><div><b>{x.patient.name || "Tanpa nama"}</b><small>{x.patient.sex || "Jenis kelamin belum diisi"}{x.patient.birthDate ? ` · ${x.patient.birthDate}` : ""}</small></div></div><span style={smallCell}>{x.patient.medicalRecordNumber || "—"}</span><span style={smallCell}>{new Date(x.updatedAt).toLocaleString("id-ID")}</span><a href="/clinical" style={link}><ExternalLink size={13}/> Buka</a></div>)}
-    </section>
-  </main>;
+const patients = [
+  { id:"RM-001248", name:"Budi Santoso", sex:"L", age:45, phone:"0812-1111-2233", complaint:"Demam, sakit kepala, nyeri badan", last:"16 Sep 2026", status:"Hari ini", allergies:"Tidak diketahui" },
+  { id:"RM-001249", name:"Siti Rahma", sex:"P", age:52, phone:"0813-2222-3344", complaint:"Kontrol hipertensi", last:"16 Sep 2026", status:"Hari ini", allergies:"Amlodipin?" },
+  { id:"RM-001250", name:"Andi Wijaya", sex:"L", age:31, phone:"0814-3333-4455", complaint:"Batuk dan sesak", last:"15 Sep 2026", status:"Menunggu", allergies:"Tidak ada" },
+  { id:"RM-001251", name:"Dewi Lestari", sex:"P", age:38, phone:"0815-4444-5566", complaint:"Nyeri perut", last:"14 Sep 2026", status:"Selesai", allergies:"Tidak ada" },
+  { id:"RM-001252", name:"Rizky Maulana", sex:"L", age:27, phone:"0816-5555-6677", complaint:"Pusing berulang", last:"12 Sep 2026", status:"Follow-up", allergies:"Tidak diketahui" },
+];
+
+export default function PatientsPage(){
+  const [q,setQ]=useState(""); const [selected,setSelected]=useState(patients[0]); const [showNew,setShowNew]=useState(false); const [filter,setFilter]=useState("Semua");
+  const filtered=useMemo(()=>patients.filter(p=>(p.name+" "+p.id+" "+p.complaint).toLowerCase().includes(q.toLowerCase()) && (filter==="Semua"||p.status===filter)),[q,filter]);
+  return <main className="app-shell"><aside className="sidebar"><div className="brand"><div className="brand-mark">D</div><div><strong>Dokter Jaga</strong><span>Clinical Intelligence</span></div></div><div className="doctor-mini"><div className="avatar">DP</div><div><b>dr. Dwi Pratama</b><small>Dokter Umum</small></div></div><nav><a className="nav-item" href="/">⌂<span>Beranda</span></a><a className="nav-item active" href="/patients"><UserRound size={17}/><span>Pasien</span></a><a className="nav-item" href="/records"><FileText size={17}/><span>Rekam Medis</span></a><a className="nav-item" href="/prescriptions"><Activity size={17}/><span>Resep</span></a><a className="nav-item" href="/clinical"><HeartPulse size={17}/><span>Clinical Assistant</span><i>AI</i></a></nav><div className="sidebar-bottom"><a className="nav-item" href="/schedule"><CalendarDays size={17}/>Jadwal</a><a className="nav-item" href="/reports"><Activity size={17}/>Laporan</a><a className="nav-item" href="/settings"><Stethoscope size={17}/>Pengaturan</a></div></aside>
+    <section className="content"><header className="topbar"><div className="search"><Search size={17}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Cari nama, RM, atau keluhan..."/></div><div className="top-actions"><div className="top-doctor"><div className="avatar small">DP</div><span>dr. Dwi</span></div></div></header>
+      <div className="page-head"><div><p className="eyebrow">PATIENT DIRECTORY</p><h1>Daftar Pasien</h1><p className="muted">Satu tempat untuk identitas, encounter terakhir, dan akses cepat ke rekam medis.</p></div><button className="primary" onClick={()=>setShowNew(true)}><Plus size={15}/> Pasien Baru</button></div>
+      <div className="quick-grid"><div className="quick-card"><div className="quick-icon blue"><UserRound size={17}/></div><div><b>{patients.length}</b><span>Total pasien lokal</span></div></div><div className="quick-card"><div className="quick-icon teal"><Activity size={17}/></div><div><b>2</b><span>Encounter hari ini</span></div></div><div className="quick-card"><div className="quick-icon purple"><HeartPulse size={17}/></div><div><b>1</b><span>Follow-up aktif</span></div></div><div className="quick-card"><div className="quick-icon indigo"><ShieldCheck size={17}/></div><div><b>100%</b><span>Dokter review</span></div></div></div>
+      <div className="workspace-grid" style={{gridTemplateColumns:"1.25fr .75fr",alignItems:"start"}}><section className="panel" style={{padding:16}}><div className="panel-head"><div><h2>Patient list</h2><p>{filtered.length} pasien ditampilkan</p></div><div style={{display:"flex",gap:6}}>{["Semua","Hari ini","Menunggu","Follow-up","Selesai"].map(x=><button key={x} onClick={()=>setFilter(x)} className="text-btn" style={{padding:"6px 8px",borderRadius:6,background:filter===x?"#eaf2ff":"transparent"}}>{x}</button>)}</div></div>{filtered.map(p=><button key={p.id} className="patient-row" onClick={()=>setSelected(p)}><div className="patient-avatar">{p.name.split(" ").map(x=>x[0]).join("")}</div><div className="patient-info"><b>{p.name}</b><span>{p.id} · {p.sex} · {p.age} th · {p.complaint}</span></div><span className="patient-time">{p.status}<small>{p.last}</small></span><ChevronRight size={15} style={{marginLeft:10,color:"#a0aabd"}}/></button>)}</section>
+        <aside className="panel" style={{padding:16}}><div className="panel-head"><div><p className="eyebrow">PATIENT SUMMARY</p><h2>{selected.name}</h2><p>{selected.id} · {selected.sex} · {selected.age} tahun</p></div><button className="icon-btn" onClick={()=>setSelected(patients[0])}><X size={15}/></button></div><div className="patient-banner" style={{marginTop:6}}><div className="patient-avatar large">{selected.name.split(" ").map(x=>x[0]).join("")}</div><div><b>{selected.phone}</b><span>Alergi: {selected.allergies}</span></div></div><div className="info-columns" style={{gridTemplateColumns:"1fr 1fr",marginTop:10}}><div><h4>Encounter terakhir</h4><div className="check-line">{selected.last}</div><div className="check-line">{selected.complaint}</div></div><div><h4>Quick actions</h4><a className="nav-item" style={{height:30,padding:0}} href="/clinical?patient=1">↗ Clinical Assistant</a><a className="nav-item" style={{height:30,padding:0}} href="/records">↗ Rekam Medis</a><a className="nav-item" style={{height:30,padding:0}} href="/prescriptions">↗ Buat Resep</a></div></div><button className="primary wide" onClick={()=>alert("Encounter baru untuk "+selected.name)}>Mulai Encounter Baru <ChevronRight size={15}/></button></aside></div>
+      {showNew&&<div onClick={()=>setShowNew(false)} style={{position:"fixed",inset:0,background:"#0f172a66",display:"grid",placeItems:"center",zIndex:50}}><div className="panel" onClick={e=>e.stopPropagation()} style={{width:"min(520px,92vw)",padding:20}}><div className="panel-head"><div><p className="eyebrow">NEW PATIENT</p><h2>Tambah pasien</h2></div><button className="icon-btn" onClick={()=>setShowNew(false)}><X/></button></div><div className="info-columns" style={{gridTemplateColumns:"1fr 1fr",border:0,padding:0}}><label className="modal-card">Nama<input placeholder="Nama lengkap"/></label><label className="modal-card">Tanggal lahir<input type="date"/></label><label className="modal-card">No. telepon<input placeholder="08xx"/></label><label className="modal-card">Jenis kelamin<select><option>Laki-laki</option><option>Perempuan</option></select></label></div><button className="primary wide" onClick={()=>setShowNew(false)}>Simpan Pasien</button></div></div>}
+    </section></main>
 }
-
-function Header({ title, sub, action }: { title: string; sub: string; action?: React.ReactNode }) { return <header style={header}><a href="/" style={back}><ArrowLeft size={14}/> Dashboard</a><div style={{ flex: 1 }}><div style={eyebrow}>{sub}</div><h1 style={h1}>{title}</h1></div>{action}</header>; }
-function Empty({ text }: { text: string }) { return <div style={{ padding: 38, textAlign: "center", color: "#8792a4", fontSize: 11 }}><UserRound size={22} style={{ marginBottom: 7 }}/><div>{text}</div></div>; }
-const page = { minHeight:"100vh", background:"#f5f8fc", color:"#16213d", fontFamily:"Inter,Arial,sans-serif" };
-const header = { height:64, background:"#fff", borderBottom:"1px solid #e5eaf2", display:"flex", alignItems:"center", gap:18, padding:"0 28px" };
-const back = { display:"flex", alignItems:"center", gap:6, color:"#66738b", fontSize:10, textDecoration:"none" };
-const eyebrow = { fontSize:8, fontWeight:800, letterSpacing:".12em", color:"#6a81a7" };
-const h1 = { margin:"3px 0 0", fontSize:20, color:"#10295b" };
-const primary = { display:"inline-flex", alignItems:"center", gap:6, textDecoration:"none", background:"#2563eb", color:"#fff", borderRadius:8, padding:"9px 11px", fontSize:9, fontWeight:700 };
-const card = { maxWidth:1120, margin:"22px auto", background:"#fff", border:"1px solid #e1e7f0", borderRadius:14, padding:15 };
-const searchBox = { maxWidth:520, height:38, display:"flex", alignItems:"center", gap:8, border:"1px solid #dce3ee", borderRadius:9, padding:"0 10px", color:"#8b96a8" };
-const plainInput = { border:0, outline:0, width:"100%", fontSize:10, background:"transparent", color:"#22304a" };
-const tableHead = { display:"grid", gridTemplateColumns:"2fr 1fr 1.4fr .7fr", gap:10, padding:"14px 8px 8px", color:"#8b96a8", fontSize:8, borderBottom:"1px solid #eef1f5", marginTop:8 };
-const row = { display:"grid", gridTemplateColumns:"2fr 1fr 1.4fr .7fr", gap:10, alignItems:"center", padding:"11px 8px", borderBottom:"1px solid #f0f2f5", fontSize:9 };
-const person = { display:"flex", alignItems:"center", gap:9 };
-const avatar = { width:31, height:31, borderRadius:9, background:"#eef4ff", color:"#2d61b4", display:"grid", placeItems:"center", fontSize:9, fontWeight:800 };
-const smallCell = { color:"#6f7c91", fontSize:9 };
-const link = { display:"inline-flex", alignItems:"center", gap:5, color:"#2563eb", textDecoration:"none", fontSize:8, fontWeight:700 };

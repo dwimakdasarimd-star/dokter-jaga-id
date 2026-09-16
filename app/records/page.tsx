@@ -1,45 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { CSSProperties } from "react";
-import { ArrowLeft, ClipboardList, FileText, Search } from "lucide-react";
-import { listClinicalEncounters, type ClinicalEncounter } from "../../lib/clinical-storage";
+import { useMemo, useState } from "react";
+import { ArrowUpRight, CalendarDays, ChevronRight, Download, FileText, HeartPulse, Search, UserRound } from "lucide-react";
 
-export default function RecordsPage() {
-  const [items, setItems] = useState<ClinicalEncounter[]>([]);
-  const [selected, setSelected] = useState<ClinicalEncounter | null>(null);
-  const [query, setQuery] = useState("");
-  useEffect(() => {
-    const x = listClinicalEncounters();
-    setItems(x);
-    setSelected(x[0] ?? null);
-  }, []);
-  const filtered = items.filter((x) => `${x.patient.name} ${x.patient.medicalRecordNumber} ${x.complaint}`.toLowerCase().includes(query.toLowerCase()));
-  return <main style={page}><header style={header}><a href="/" style={back}><ArrowLeft size={14}/> Dashboard</a><div><div style={eyebrow}>MEDICAL RECORD</div><h1 style={h1}>Rekam Medis</h1></div></header><div style={layout}>
-    <section style={card}><div style={searchBox}><Search size={14}/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder="Cari pasien atau keluhan..." style={plain}/></div>{filtered.length===0?<div style={empty}>Belum ada encounter tersimpan.</div>:filtered.map((x)=><button key={x.id} onClick={()=>setSelected(x)} style={{...item, ...(selected?.id===x.id?itemActive:{})}}><div style={avatar}>{(x.patient.name||"PS").slice(0,2).toUpperCase()}</div><div style={itemText}><b>{x.patient.name||"Tanpa nama"}</b><small>{x.patient.medicalRecordNumber||"No. RM —"}</small><small>{x.complaint}</small></div><span style={date}>{new Date(x.updatedAt).toLocaleDateString("id-ID")}</span></button>)}</section>
-    <section style={card}>{selected?<><div style={recordHead}><div><div style={eyebrow}>ENCOUNTER DETAIL</div><h2 style={h2}>{selected.patient.name||"Tanpa nama"}</h2><span style={muted}>{selected.patient.medicalRecordNumber||"No. RM —"} · {new Date(selected.updatedAt).toLocaleString("id-ID")}</span></div><a href="/clinical" style={open}><FileText size={13}/> Buka workspace</a></div><Block title="Keluhan" text={selected.complaint}/><Block title="Tanda vital" text={`TD ${selected.vitals.bp||"—"}; Nadi ${selected.vitals.hr||"—"}; RR ${selected.vitals.rr||"—"}; Suhu ${selected.vitals.temp||"—"}; SpO₂ ${selected.vitals.spo2||"—"}`}/><Block title="Diagnosis kerja" text={selected.selectedDx||"Belum dipilih"}/><div style={soap}><div style={soapTitle}><ClipboardList size={14}/> SOAP</div><Block title="S" text={selected.complaint}/><Block title="O" text="Pemeriksaan objektif perlu dilengkapi dan diverifikasi dokter."/><Block title="A" text={selected.selectedDx||"Belum dipilih"}/><Block title="P" text="Lihat clinical plan pada encounter."/></div></>:<div style={empty}>Pilih encounter dari daftar.</div>}</section>
-  </div></main>;
-}
-function Block({title,text}:{title:string;text:string}){return <div style={block}><b>{title}</b><span>{text}</span></div>}
-const page: CSSProperties={minHeight:"100vh",background:"#f5f8fc",fontFamily:"Inter,Arial,sans-serif",color:"#16213d"};
-const header: CSSProperties={height:64,background:"#fff",borderBottom:"1px solid #e5eaf2",display:"flex",alignItems:"center",gap:18,padding:"0 28px"};
-const back: CSSProperties={display:"flex",gap:6,alignItems:"center",color:"#65728a",textDecoration:"none",fontSize:10};
-const eyebrow: CSSProperties={fontSize:8,fontWeight:800,letterSpacing:".12em",color:"#6a81a7"};
-const h1: CSSProperties={margin:"3px 0 0",fontSize:20,color:"#10295b"};
-const h2: CSSProperties={margin:"3px 0 0",fontSize:15,color:"#10295b"};
-const muted: CSSProperties={display:"block",marginTop:5,fontSize:8,color:"#8590a2"};
-const layout: CSSProperties={maxWidth:1120,margin:"22px auto",display:"grid",gridTemplateColumns:".85fr 1.5fr",gap:13};
-const card: CSSProperties={background:"#fff",border:"1px solid #e1e7f0",borderRadius:14,padding:14};
-const searchBox: CSSProperties={height:36,border:"1px solid #dce3ee",borderRadius:8,display:"flex",alignItems:"center",gap:7,padding:"0 9px",color:"#8b96a8",marginBottom:9};
-const plain: CSSProperties={border:0,outline:0,width:"100%",fontSize:9};
-const item: CSSProperties={width:"100%",border:0,borderTop:"1px solid #eef1f5",background:"transparent",padding:"9px 4px",display:"flex",gap:8,alignItems:"center",cursor:"pointer"};
-const itemActive: CSSProperties={background:"#f5f9ff",borderRadius:8};
-const avatar: CSSProperties={width:30,height:30,borderRadius:9,background:"#eef4ff",color:"#2d61b4",display:"grid",placeItems:"center",fontSize:8,fontWeight:800};
-const itemText: CSSProperties={flex:1,textAlign:"left"};
-const date: CSSProperties={fontSize:7,color:"#929daf"};
-const empty: CSSProperties={padding:30,textAlign:"center",color:"#8792a4",fontSize:10};
-const recordHead: CSSProperties={display:"flex",justifyContent:"space-between",gap:10,alignItems:"flex-start",marginBottom:8};
-const open: CSSProperties={display:"inline-flex",gap:5,alignItems:"center",color:"#2563eb",fontSize:8,fontWeight:700,textDecoration:"none"};
-const block: CSSProperties={borderTop:"1px solid #edf0f4",padding:"10px 0",display:"grid",gridTemplateColumns:"100px 1fr",gap:10,fontSize:9};
-const soap: CSSProperties={marginTop:10,border:"1px solid #e3e9f2",borderRadius:10,padding:10};
-const soapTitle: CSSProperties={fontWeight:800,fontSize:9,color:"#10295b",display:"flex",gap:6,alignItems:"center",marginBottom:2};
+const records=[
+ {id:"ENC-2026-0916-01",patient:"Budi Santoso",date:"16 Sep 2026 · 09:02",dx:"Dengue Fever",complaint:"Demam 3 hari, sakit kepala, mialgia",doctor:"dr. Dwi Pratama",status:"Draft"},
+ {id:"ENC-2026-0916-02",patient:"Siti Rahma",date:"16 Sep 2026 · 09:31",dx:"Hipertensi",complaint:"Kontrol tekanan darah",doctor:"dr. Dwi Pratama",status:"Signed"},
+ {id:"ENC-2026-0915-03",patient:"Andi Wijaya",date:"15 Sep 2026 · 10:06",dx:"Bronchitis?",complaint:"Batuk 5 hari dan sesak",doctor:"dr. Dwi Pratama",status:"Signed"},
+ {id:"ENC-2026-0914-04",patient:"Dewi Lestari",date:"14 Sep 2026 · 10:33",dx:"Dyspepsia",complaint:"Nyeri epigastrium",doctor:"dr. Dwi Pratama",status:"Signed"},
+];
+
+export default function RecordsPage(){const [q,setQ]=useState("");const [active,setActive]=useState(records[0]);const filtered=useMemo(()=>records.filter(r=>(r.patient+" "+r.dx+" "+r.id+" "+r.complaint).toLowerCase().includes(q.toLowerCase())),[q]);return <main className="app-shell"><aside className="sidebar"><div className="brand"><div className="brand-mark">D</div><div><strong>Dokter Jaga</strong><span>Clinical Intelligence</span></div></div><div className="doctor-mini"><div className="avatar">DP</div><div><b>dr. Dwi Pratama</b><small>Dokter Umum</small></div></div><nav><a className="nav-item" href="/">⌂<span>Beranda</span></a><a className="nav-item" href="/patients"><UserRound size={17}/>Pasien</a><a className="nav-item active" href="/records"><FileText size={17}/>Rekam Medis</a><a className="nav-item" href="/prescriptions"><HeartPulse size={17}/>Resep</a><a className="nav-item" href="/clinical"><HeartPulse size={17}/>Clinical Assistant<i>AI</i></a></nav><div className="sidebar-bottom"><a className="nav-item" href="/schedule"><CalendarDays size={17}/>Jadwal</a><a className="nav-item" href="/reports">◫ Laporan</a><a className="nav-item" href="/settings">⚙ Pengaturan</a></div></aside><section className="content"><header className="topbar"><div className="search"><Search size={17}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Cari rekam medis, pasien, diagnosis..."/></div></header><div className="page-head"><div><p className="eyebrow">MEDICAL RECORDS</p><h1>Rekam Medis</h1><p className="muted">Timeline encounter dengan SOAP, diagnosis kerja, rencana, dan status dokumentasi.</p></div><button className="primary" onClick={()=>window.print()}><Download size={14}/> Export</button></div><div className="workspace-grid" style={{gridTemplateColumns:"1.15fr .85fr",alignItems:"start"}}><section className="panel" style={{padding:16}}><div className="panel-head"><div><h2>Encounter timeline</h2><p>{filtered.length} record</p></div></div>{filtered.map(r=><button className="patient-row" key={r.id} onClick={()=>setActive(r)}><div className="quick-icon blue" style={{width:32,height:32}}><FileText size={15}/></div><div className="patient-info"><b>{r.patient} <span style={{display:"inline",marginLeft:5,fontSize:7,color:r.status==="Signed"?"#138873":"#a36c10"}}>{r.status}</span></b><span>{r.date} · {r.id}</span><span>{r.dx} · {r.complaint}</span></div><ChevronRight size={15} style={{color:"#9aa4b4"}}/></button>)}</section><aside className="panel" style={{padding:18}}><p className="eyebrow">RECORD PREVIEW</p><div className="panel-head"><div><h2>{active.patient}</h2><p>{active.id}</p></div><ArrowUpRight size={16} style={{color:"#2563eb"}}/></div><div className="patient-banner"><div className="patient-avatar large">{active.patient.split(" ").map(x=>x[0]).join("")}</div><div><b>{active.dx}</b><span>{active.date} · {active.doctor}</span></div></div><div style={{marginTop:14}}><div className="soap"><b>S</b><span>{active.complaint}. Durasi dan karakteristik akan ditambahkan setelah anamnesis terarah.</span></div><div className="soap"><b>O</b><span>TD — / — mmHg · N — · RR — · T — °C · SpO₂ —</span></div><div className="soap"><b>A</b><span><strong>{active.dx}</strong> — diagnosis kerja dipilih dokter dan dapat berubah sesuai data.</span></div><div className="soap"><b>P</b><span>Pemeriksaan terarah, tata laksana suportif/kausal sesuai indikasi, edukasi, safety-net, follow-up.</span></div></div><div className="warning" style={{marginTop:12}}><HeartPulse size={14}/><span>Dokumen yang sudah signed diperlakukan sebagai catatan final untuk encounter tersebut.</span></div><button className="primary wide" onClick={()=>window.location.href="/clinical"}>Buka Clinical Assistant <ChevronRight size={15}/></button></aside></div></section></main>}
