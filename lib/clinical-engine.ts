@@ -59,14 +59,10 @@ export type ClinicalEngineResult = {
   };
 };
 
-const RULE_VERSION = "clinical-rules-v2.0.0";
+const RULE_VERSION = "clinical-rules-v2.1.0";
 
 function norm(text: string) {
   return text.toLowerCase().replace(/\s+/g, " ").trim();
-}
-
-function includesAny(text: string, terms: string[]) {
-  return terms.some(term => text.includes(term));
 }
 
 function yes(answer: QuestionAnswer | undefined) {
@@ -75,6 +71,24 @@ function yes(answer: QuestionAnswer | undefined) {
 
 function no(answer: QuestionAnswer | undefined) {
   return answer === "no";
+}
+
+function hasSymptom(text: string, terms: string[]) {
+  return terms.some(term => {
+    const index = text.indexOf(term);
+    if (index < 0) return false;
+
+    const before = text.slice(Math.max(0, index - 32), index);
+    const after = text.slice(index + term.length, Math.min(text.length, index + term.length + 22));
+
+    const negatedBefore = /\b(?:tidak|tanpa|disangkal|negatif|menyangkal)(?:\s+ada)?\s*$/.test(before);
+    const negatedAfter = /^\s*(?:tidak|tanpa|disangkal|negatif)\b/.test(after);
+    return !negatedBefore && !negatedAfter;
+  });
+}
+
+function symptomMentioned(text: string, terms: string[]) {
+  return terms.some(term => text.includes(term));
 }
 
 export function runClinicalEngine(input: ClinicalEngineInput): ClinicalEngineResult {
@@ -88,19 +102,19 @@ export function runClinicalEngine(input: ClinicalEngineInput): ClinicalEngineRes
   const medicationSafety: string[] = [];
   const missing: string[] = [];
 
-  const hasFever = includesAny(text, ["demam", "febrile", "panas"]);
-  const hasHeadache = includesAny(text, ["sakit kepala", "nyeri kepala", "cephalgia"]);
-  const hasMyalgia = includesAny(text, ["nyeri badan", "mialgia", "pegal", "myalgia"]);
-  const hasNausea = includesAny(text, ["mual", "nausea"]);
-  const hasVomiting = includesAny(text, ["muntah", "vomiting"]);
-  const hasCough = includesAny(text, ["batuk", "cough"]);
-  const hasBleeding = includesAny(text, ["perdarahan", "gusi berdarah", "mimisan", "melena", "hematemesis"]);
-  const hasAbdominalPain = includesAny(text, ["nyeri perut", "sakit perut", "abdominal pain"]);
-  const hasDyspnea = includesAny(text, ["sesak", "dispnea", "dyspnea"]);
-  const hasAlteredMentalStatus = includesAny(text, ["penurunan kesadaran", "bingung", "kejang"]);
-  const hasRashInText = includesAny(text, ["ruam", "rash", "kemerahan kulit"]);
-  const hasComorbidityContext = includesAny(text, ["riwayat penyakit", "hipertensi", "diabetes", "ginjal", "asma", "jantung", "hamil", "kehamilan"]);
-  const hasAllergyContext = includesAny(text, ["alergi", "alergi obat", "drug allergy"]);
+  const hasFever = hasSymptom(text, ["demam", "febrile", "panas"]);
+  const hasHeadache = hasSymptom(text, ["sakit kepala", "nyeri kepala", "cephalgia"]);
+  const hasMyalgia = hasSymptom(text, ["nyeri badan", "mialgia", "pegal", "myalgia"]);
+  const hasNausea = hasSymptom(text, ["mual", "nausea"]);
+  const hasVomiting = hasSymptom(text, ["muntah", "vomiting"]);
+  const hasCough = hasSymptom(text, ["batuk", "cough"]);
+  const hasBleeding = hasSymptom(text, ["perdarahan", "gusi berdarah", "mimisan", "melena", "hematemesis"]);
+  const hasAbdominalPain = hasSymptom(text, ["nyeri perut", "sakit perut", "abdominal pain"]);
+  const hasDyspnea = hasSymptom(text, ["sesak", "dispnea", "dyspnea"]);
+  const hasAlteredMentalStatus = hasSymptom(text, ["penurunan kesadaran", "bingung", "kejang"]);
+  const hasRashInText = hasSymptom(text, ["ruam", "rash", "kemerahan kulit"]);
+  const hasComorbidityContext = symptomMentioned(text, ["riwayat penyakit", "hipertensi", "diabetes", "ginjal", "asma", "jantung", "hamil", "kehamilan"]);
+  const hasAllergyContext = symptomMentioned(text, ["alergi", "alergi obat", "drug allergy"]);
 
   const q: ClinicalQuestion[] = [
     { id: "rash", text: "Apakah ada ruam atau kemerahan kulit?", whyItMatters: "Membantu memperkaya sindrom klinis dan membedakan beberapa penyebab demam akut.", category: "differential" },
@@ -123,6 +137,7 @@ export function runClinicalEngine(input: ClinicalEngineInput): ClinicalEngineRes
   if (hasRashInText || yes(answers.rash)) extracted.push("Ruam/kemerahan kulit");
   if (no(answers.bleeding)) extracted.push("Perdarahan disangkal pada anamnesis terarah");
   if (no(answers.respNeuro)) extracted.push("Red flags respirasi/neurologis disangkal pada anamnesis terarah");
+  if (no(answers.abdominal)) extracted.push("Nyeri perut hebat/muntah persisten disangkal pada anamnesis terarah");
 
   const vitalKeys: (keyof Vitals)[] = ["bp", "hr", "rr", "temp", "spo2"];
   const missingVitalLabels: Record<keyof Vitals, string> = {
@@ -131,7 +146,9 @@ export function runClinicalEngine(input: ClinicalEngineInput): ClinicalEngineRes
   vitalKeys.forEach(key => { if (!input.vitals[key]) missing.push(missingVitalLabels[key]); });
 
   q.forEach(question => {
-    if (!answers[question.id] || answers[question.id] === "unknown") missing.push(`${question.text.replace(/^Apakah /, "")} belum ditentukan`);
+    if (!answers[question.id] || answers[question.id] === "unknown") {
+      missing.push(`${question.text.replace(/^Apakah /, "")} belum ditentukan`);
+    }
   });
   if (!hasComorbidityContext) missing.push("Riwayat penyakit/komorbid belum jelas");
   if (!hasAllergyContext) missing.push("Alergi obat belum jelas");
@@ -150,17 +167,23 @@ export function runClinicalEngine(input: ClinicalEngineInput): ClinicalEngineRes
   if (hasFever && (hasNausea || hasVomiting || hasAbdominalPain || yes(answers.exposure))) {
     differentials.push({ name: "Demam tifoid / infeksi enterik", reason: "Demam dengan keluhan gastrointestinal atau paparan relevan perlu dikorelasikan dengan konteks klinis.", level: "Pertimbangkan", tags: ["demam", "gastrointestinal"] });
   }
+  if (hasCough) {
+    differentials.push({ name: "Infeksi saluran napas akut", reason: "Batuk menjadi fokus gejala sehingga etiologi respiratorik perlu dikorelasikan dengan pemeriksaan fisik dan gejala penyerta.", level: "Pertimbangkan", tags: ["batuk", "fokus respirasi"] });
+  }
+  if (hasFever && hasCough) {
+    differentials.push({ name: "Sindrom infeksi respiratorik dengan demam", reason: "Demam disertai batuk mengarahkan evaluasi pada fokus respirasi sesuai temuan klinis.", level: "Pertimbangkan", tags: ["demam", "batuk"] });
+  }
   if (differentials.length === 0) {
-    differentials.push({ name: "Keluhan belum terstruktur", reason: "Data belum cukup untuk rule set V2 menghasilkan pertimbangan klinis spesifik.", level: "Data belum cukup", tags: ["lengkapi anamnesis", "review tanda vital"] });
+    differentials.push({ name: "Keluhan belum terstruktur", reason: "Data belum cukup untuk rule set V2.1 menghasilkan pertimbangan klinis spesifik.", level: "Data belum cukup", tags: ["lengkapi anamnesis", "review tanda vital"] });
   }
 
   const activeRedFlagText: string[] = [];
   if (hasBleeding || yes(answers.bleeding)) activeRedFlagText.push("Gejala perdarahan dilaporkan: nilai derajat, hemodinamika, dan sumber perdarahan segera.");
-  if (hasDyspnea || yes(answers.respNeuro)) activeRedFlagText.push("Gejala respirasi signifikan dilaporkan: nilai status respirasi dan stabilitas pasien segera.");
-  if (hasAlteredMentalStatus || yes(answers.respNeuro)) activeRedFlagText.push("Gangguan kesadaran/neurologis dilaporkan: lakukan evaluasi segera sesuai konteks klinis.");
+  if (hasDyspnea || yes(answers["resp-neuro"])) activeRedFlagText.push("Gejala respirasi signifikan dilaporkan: nilai status respirasi dan stabilitas pasien segera.");
+  if (hasAlteredMentalStatus || yes(answers["resp-neuro"])) activeRedFlagText.push("Gangguan kesadaran/neurologis dilaporkan: lakukan evaluasi segera sesuai konteks klinis.");
   if (yes(answers.abdominal)) activeRedFlagText.push("Nyeri perut hebat atau muntah persisten dilaporkan: reassess hidrasi, perfusi, dan kebutuhan evaluasi segera.");
   if (missing.some(x => ["Tekanan darah", "Nadi", "Frekuensi napas", "Suhu", "SpO₂"].includes(x))) activeRedFlagText.push("Tanda vital belum lengkap sehingga stabilitas pasien belum dapat dinilai dari data form.");
-  redFlags.push(...activeRedFlagText);
+  redFlags.push(...Array.from(new Set(activeRedFlagText)));
 
   investigations.push({ name: "Tanda vital lengkap", reason: "Menilai stabilitas pasien sebelum keputusan berikutnya.", priority: "Wajib" });
   if (hasFever) investigations.push({ name: "Darah lengkap", reason: "Dipertimbangkan untuk melengkapi evaluasi sindrom demam sesuai pertanyaan klinis.", priority: "Disarankan" });
@@ -179,9 +202,9 @@ export function runClinicalEngine(input: ClinicalEngineInput): ClinicalEngineRes
   if (hasBleeding || yes(answers.bleeding)) medicationSafety.push("Karena ada sinyal perdarahan, lakukan medication safety review khusus terhadap obat yang dapat meningkatkan risiko perdarahan.");
 
   let disposition: ClinicalEngineResult["disposition"];
-  if (hasAlteredMentalStatus || hasDyspnea || hasBleeding || yes(answers.respNeuro) || yes(answers.bleeding)) {
+  if (hasAlteredMentalStatus || hasDyspnea || hasBleeding || yes(answers["resp-neuro"]) || yes(answers.bleeding)) {
     disposition = { status: "stabilize-first", title: "Prioritaskan stabilisasi & evaluasi segera", reason: "Terdapat sinyal yang dapat berkaitan dengan kondisi tidak stabil atau red flag.", triggers: activeRedFlagText.slice(0, 4) };
-  } else if (missing.length > 0 || redFlags.length > 0) {
+  } else if (missing.length > 0) {
     disposition = { status: "urgent-review", title: "Review klinis sebelum finalisasi", reason: "Masih ada data penting yang belum lengkap untuk mendukung keputusan disposition.", triggers: missing.slice(0, 5) };
   } else {
     disposition = { status: "routine-review", title: "Lanjutkan review klinis terstruktur", reason: "Data inti pada form sudah lebih lengkap, tetapi diagnosis dan disposition tetap memerlukan keputusan dokter.", triggers: [] };
