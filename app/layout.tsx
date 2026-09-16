@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./tools/tools.css";
 import NavigationBridge from "./navigation-bridge";
 
 export const metadata: Metadata = {
