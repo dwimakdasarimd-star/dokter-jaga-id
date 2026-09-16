@@ -19,6 +19,12 @@ const nav = [
 
 const steps = ["Keluhan", "Anamnesis", "Pemeriksaan", "Analisis", "Rencana"];
 
+const differentialDiagnoses = [
+  { name: "Dengue Fever", relevance: "Paling relevan", tags: ["Demam akut", "Sakit kepala", "Nyeri badan"] },
+  { name: "Viral Infection", relevance: "Masih mungkin", tags: ["Demam akut", "Nyeri badan"] },
+  { name: "Typhoid Fever", relevance: "Pertimbangkan", tags: ["Demam > 3 hari", "Riwayat makanan"] },
+] as const;
+
 export default function Home() {
   const [activeNav, setActiveNav] = useState("Beranda");
   const [activeStep, setActiveStep] = useState(0);
@@ -72,7 +78,7 @@ export default function Home() {
               <div className="section-title"><div><p className="eyebrow">STEP 01 · ANALISIS AWAL</p><h3>Gambaran Klinis</h3></div><span className="status-chip">Informasi cukup untuk analisis awal</span></div>
               <div className="info-columns"><div><h4>Informasi terdeteksi</h4>{['Demam · 3 hari','Sakit kepala','Nyeri badan','Mual','Tidak batuk','Tidak muntah'].map(x=><div className="check-line" key={x}><Check size={14}/>{x}</div>)}</div><div><h4>Pertanyaan yang mungkin relevan</h4>{['Apakah ada ruam?','Apakah ada perdarahan gusi/hidung?','Apakah nyeri perut?','Apakah ada penurunan kesadaran?'].map(x=><label className="question" key={x}><input type="checkbox"/>{x}</label>)}</div><div className="missing"><h4>Informasi belum ada</h4>{['Tanda vital','Status hidrasi','Riwayat penyakit','Pemeriksaan fisik'].map(x=><div key={x}>◆ {x}</div>)}</div></div>
               <div className="section-title dx-title"><div><p className="eyebrow">STEP 02 · CLINICAL REASONING</p><h3>Diagnosis Banding</h3></div><button className="text-btn">Lihat Guideline →</button></div>
-              {[['Dengue Fever','Paling relevan',['Demam akut','Sakit kepala','Nyeri badan']],['Viral Infection','Masih mungkin',['Demam akut','Nyeri badan']],['Typhoid Fever','Pertimbangkan',['Demam > 3 hari','Riwayat makanan']]].map((d,i)=><button key={d[0]} className={selectedDx===d[0]?"dx-card selected":"dx-card"} onClick={()=>setSelectedDx(d[0])}><span className="rank">{i+1}</span><div><div className="dx-name"><b>{d[0]}</b><span>{d[1]}</span></div><p>Alasan dipertimbangkan</p><div className="tags">{d[2].map(t=><span key={t}>{t}</span>)}</div></div><ArrowRight size={16}/></button>)}
+              {differentialDiagnoses.map((d,i)=><button key={d.name} className={selectedDx===d.name?"dx-card selected":"dx-card"} onClick={()=>setSelectedDx(d.name)}><span className="rank">{i+1}</span><div><div className="dx-name"><b>{d.name}</b><span>{d.relevance}</span></div><p>Alasan dipertimbangkan</p><div className="tags">{d.tags.map(t=><span key={t}>{t}</span>)}</div></div><ArrowRight size={16}/></button>)}
             </div>
             <aside className="analysis-side"><div className="side-card"><p className="eyebrow">DIAGNOSIS KERJA</p><h3>{selectedDx}</h3><p>Dipilih oleh dokter berdasarkan data klinis yang tersedia.</p><label>Diagnosis kerja<select value={selectedDx} onChange={e=>setSelectedDx(e.target.value)}><option>Dengue Fever</option><option>Viral Infection</option><option>Typhoid Fever</option></select></label><button className="primary wide" onClick={()=>setActiveStep(2)}>Lanjut ke Pemeriksaan <ArrowRight size={16}/></button></div><div className="safety-card"><AlertTriangle size={17}/><div><b>Safety check</b><p>Pastikan tanda vital dan red flags dinilai sebelum keputusan tatalaksana.</p></div></div></aside>
           </div>
