@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import NavigationBridge from "./navigation-bridge";
 
 export const metadata: Metadata = {
   title: "Dokter Jaga Clinical",
@@ -7,5 +8,5 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="id"><body>{children}</body></html>;
+  return <html lang="id"><body><NavigationBridge />{children}</body></html>;
 }
