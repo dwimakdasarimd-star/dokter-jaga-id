@@ -35,7 +35,7 @@ const tests = [
   ["Fungsi hati", "Pertimbangkan bila ada indikasi klinis", "Pertimbangan"],
 ];
 
-export default function Home() {
+export default function ClinicalAssistant() {
   const [activeNav, setActiveNav] = useState("Beranda");
   const [activeStep, setActiveStep] = useState(0);
   const [query, setQuery] = useState("");
@@ -77,7 +77,7 @@ export default function Home() {
           <div className="top-actions"><button className="icon-btn"><Bell size={18}/><em/></button><div className="top-doctor"><div className="avatar small">DP</div><span>dr. Dwi</span></div></div>
         </header>
 
-        <div className="page-head"><div><p className="eyebrow">CLINICAL WORKSPACE</p><h1>Selamat pagi, Dokter.</h1><p className="muted">Ruang kerja klinis untuk membantu Anda mengambil keputusan dan mendokumentasikannya.</p></div><div className="date-pill"><CalendarDays size={16}/> Rabu, 16 September 2026</div></div>
+        <div className="page-head"><div><p className="eyebrow">CLINICAL WORKSPACE</p><h1>Selamat pagi, Dokter.</h1><p className="muted">Ruang kerja klinis untuk membantu Anda mengambil keputusan dan mendokumentasikannya.</p></div><div className="date-pill"><CalendarDays size={16}/> Senin, 21 September 2026</div></div>
 
         {activeNav === "Beranda" && <>
           <section className="quick-grid">
