@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./tools/tools.css";
-import NavigationBridge from "./navigation-bridge";
 
 export const metadata: Metadata = {
-  title: "Dokter Jaga Clinical",
-  description: "Clinical intelligence workspace for doctors.",
+  title: "Dokter Jaga — Clinical Assistant untuk Dokter",
+  description: "Clinical workspace untuk membantu dokter umum bekerja di IGD dan poliklinik.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="id"><body><NavigationBridge />{children}</body></html>;
+  return <html lang="id"><body>{children}</body></html>;
 }
